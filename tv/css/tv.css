@@ -1,0 +1,84 @@
+/* Laid out for the TV's 1920x1080 page. The 2019 TV's browser engine is Chromium 63:
+   no `inset`, no flexbox `gap`, no newer CSS. */
+html, body {
+  margin: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  font-family: "SamsungOne", "Samsung Sans", Arial, sans-serif;
+  color: #f2f3f5;
+  background: #0e1116;
+}
+
+/* While a video plays the page must be see-through, or it hides the video plane. */
+body.mode-playing { background: transparent; }
+
+#av-player {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+}
+
+.screen {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 200px;
+}
+
+body.mode-idle #idle,
+body.mode-loading #loading,
+body.mode-error #error,
+body.mode-settings #settings { display: flex; }
+
+.logo { font-size: 96px; font-weight: 700; letter-spacing: -1px; display: flex; align-items: center; }
+.frame { margin-right: 36px; width: 110px; height: 80px; border: 10px solid #f2f3f5; border-radius: 8px; position: relative; box-sizing: border-box; }
+.frame::after {
+  content: ""; position: absolute; left: 32px; top: 13px;
+  border-left: 30px solid #f2f3f5; border-top: 17px solid transparent; border-bottom: 17px solid transparent;
+}
+.lead { font-size: 52px; margin: 40px 0 10px; }
+.title { font-size: 44px; font-weight: 600; margin: 10px 0; }
+.status { font-size: 34px; color: #aeb5bf; margin: 16px 0; max-width: 1400px; }
+.status.bad { color: #ff8f80; }
+.hint { font-size: 28px; color: #7d8590; margin-top: 60px; }
+
+.spinner {
+  width: 110px; height: 110px; border-radius: 50%;
+  border: 12px solid #2a3039; border-top-color: #f2f3f5;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#hub-input {
+  width: 1100px; font-size: 44px; padding: 20px 28px; margin-top: 30px;
+  border-radius: 14px; border: 4px solid #3a414c; background: #161a21; color: #f2f3f5;
+}
+#hub-save {
+  font-size: 40px; padding: 18px 80px; margin-top: 30px; border-radius: 14px;
+  border: 4px solid #3a414c; background: #232933; color: #f2f3f5;
+}
+.focusable.focused { border-color: #6ea0ff; outline: none; }
+
+.osd {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 40px 120px 50px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0));
+  display: none;
+}
+body.mode-playing.osd-visible .osd,
+body.mode-loading.osd-visible .osd { display: block; }
+.osd .title { font-size: 48px; text-shadow: 0 2px 6px #000; }
+.osd .hint { margin-top: 18px; font-size: 26px; color: #c3c8cf; }
+.bar { height: 10px; background: rgba(255, 255, 255, 0.25); border-radius: 5px; overflow: hidden; margin-top: 20px; }
+#osd-bar { height: 100%; width: 0; background: #f2f3f5; }
+.osd-line { display: flex; justify-content: space-between; font-size: 32px; margin: 14px 0 0; }

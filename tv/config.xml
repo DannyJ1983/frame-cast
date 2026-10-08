@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Tizen web app manifest for Samsung TVs.
+  The application id (package + "." + name) must match DEFAULT_APP_ID in framecast/config.py,
+  which the hub uses to open the app on the TV. The package part must be exactly 10 letters/digits.
+-->
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets"
+        id="http://framecast.local/tv" version="0.1.0" viewmodes="maximized">
+    <tizen:application id="FrameCast0.FrameCast" package="FrameCast0" required_version="2.3"/>
+    <name>Frame Cast</name>
+    <description>Plays videos shared from your phone.</description>
+    <content src="index.html"/>
+    <icon src="icon.png"/>
+    <access origin="*" subdomains="true"/>
+    <feature name="http://tizen.org/feature/screen.size.all"/>
+    <tizen:profile name="tv-samsung"/>
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+    <tizen:privilege name="http://developer.samsung.com/privilege/avplay"/>
+    <tizen:privilege name="http://developer.samsung.com/privilege/productinfo"/>
+    <tizen:setting screen-orientation="landscape" context-menu="enable" background-support="disable"
+                   encryption="disable" install-location="auto" hwkey-event="enable"/>
+</widget>

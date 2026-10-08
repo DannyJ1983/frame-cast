@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1920, user-scalable=no">
+  <title>Frame Cast</title>
+  <link rel="stylesheet" href="css/tv.css">
+</head>
+<body class="mode-idle">
+  <!-- Samsung's player draws video on a plane behind the page, inside this element. -->
+  <object id="av-player" type="application/avplayer"></object>
+
+  <section id="idle" class="screen">
+    <div class="logo"><span class="frame"></span>Frame Cast</div>
+    <p class="lead">Share a page from your phone to play its video here.</p>
+    <p id="hub-status" class="status">Connecting…</p>
+    <p class="hint">OK: change the home server address · Back: close</p>
+  </section>
+
+  <section id="loading" class="screen">
+    <div class="spinner"></div>
+    <p class="lead">Loading</p>
+    <p id="loading-title" class="title"></p>
+  </section>
+
+  <section id="error" class="screen">
+    <p class="lead">Couldn't play the video</p>
+    <p id="error-message" class="status"></p>
+    <p class="hint">Press OK or Back to go back.</p>
+  </section>
+
+  <section id="settings" class="screen">
+    <p class="lead">Home server address</p>
+    <p class="status">The address of the computer running Frame Cast, for example http://192.168.1.20:8090</p>
+    <input id="hub-input" class="focusable" type="text" spellcheck="false" autocomplete="off">
+    <button id="hub-save" class="focusable" type="button">Save</button>
+    <p class="hint">Up/Down: move · OK: type or save · Back: cancel</p>
+  </section>
+
+  <section id="osd" class="osd">
+    <p id="osd-title" class="title"></p>
+    <div class="bar"><div id="osd-bar"></div></div>
+    <p class="osd-line"><span id="osd-state"></span><span id="osd-time"></span></p>
+    <p class="hint">OK: pause/play · ◀ ▶: back 10 s / forward 30 s · Back: stop</p>
+  </section>
+
+  <script src="$WEBAPIS/webapis/webapis.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/fakeplayer.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/hubclient.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

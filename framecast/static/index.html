@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111418">
+  <title>Frame Cast</title>
+  <link rel="stylesheet" href="/static/phone.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Frame Cast</h1>
+      <span id="tv-pill" class="pill">Checking…</span>
+    </header>
+
+    <form id="send-form" autocomplete="off">
+      <label for="url">Link to a page with a video</label>
+      <div class="row">
+        <input id="url" name="url" type="url" inputmode="url" placeholder="https://…" required>
+        <button type="submit" id="send-button">Send</button>
+      </div>
+    </form>
+    <p id="message" class="message" role="status" aria-live="polite"></p>
+
+    <section id="now" class="card" hidden>
+      <p class="label">On the TV</p>
+      <h2 id="now-title"></h2>
+      <p id="now-state" class="state"></p>
+      <div class="progress"><div id="now-bar"></div></div>
+      <div class="controls">
+        <button type="button" data-action="seek" data-seconds="-30" aria-label="Back 30 seconds">−30 s</button>
+        <button type="button" data-action="toggle" id="toggle-button">Pause</button>
+        <button type="button" data-action="seek" data-seconds="30" aria-label="Forward 30 seconds">+30 s</button>
+        <button type="button" data-action="stop" class="secondary">Stop</button>
+      </div>
+    </section>
+
+    <section id="recent-section" hidden>
+      <h3>Recent</h3>
+      <ul id="recent"></ul>
+    </section>
+
+    <details>
+      <summary>Share from your phone's share menu</summary>
+      <h4>iPhone (Shortcuts app)</h4>
+      <ol>
+        <li>Open <b>Shortcuts</b>, tap <b>+</b>, and name the shortcut <b>Send to Frame</b>.</li>
+        <li>Tap the <b>ⓘ</b> button and turn on <b>Show in Share Sheet</b>. Set it to receive <b>URLs</b> and <b>Safari web pages</b>.</li>
+        <li>Add the action <b>Get Contents of URL</b>. Set the URL to <code class="hub-send"></code>, method <b>POST</b>, request body <b>JSON</b>, and add a field <b>url</b> = <b>Shortcut Input</b>.</li>
+        <li>Add <b>Show Notification</b> with the <b>Contents of URL</b>.</li>
+      </ol>
+      <h4>Android (HTTP Shortcuts app)</h4>
+      <ol>
+        <li>Install <b>HTTP Shortcuts</b> from the Play Store.</li>
+        <li>Create a variable called <b>link</b> (type <b>Static</b>) and tick <b>Allow receiving value from Share dialog</b>.</li>
+        <li>Create a shortcut named <b>Send to Frame</b>: method <b>POST</b>, URL <code class="hub-send-text"></code>, body type <b>Custom text</b>, body <code>{link}</code> (insert the variable).</li>
+        <li>Under <b>Response handling</b>, choose to show the response as a toast. Under <b>Advanced</b>, set the timeout to 60 seconds.</li>
+        <li>Now <b>Share</b> → <b>HTTP Shortcuts</b> → <b>Send to Frame</b> from any app.</li>
+      </ol>
+      <p>Either way, your phone needs to be on the home WiFi.</p>
+      <p><button type="button" id="test-button" class="secondary">Send a test video</button></p>
+    </details>
+  </main>
+  <script src="/static/phone.js"></script>
+</body>
+</html>

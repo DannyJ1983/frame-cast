@@ -20,6 +20,7 @@ log = logging.getLogger(__name__)
 
 PENDING_TTL = 600.0  # A link shared while the TV app was closed plays if it's opened within this time.
 QUEUE_SIZE = 100
+MAX_ACKS = 50  # Acknowledgement events kept for recent play commands.
 # Statuses that show the TV has received a play command.
 ACK_STATES = {"loading", "buffering", "playing", "paused", "ended", "error"}
 CONTROL_ACTIONS = {"toggle", "pause", "resume", "stop", "seek"}
@@ -138,6 +139,8 @@ class Hub:
         self.current = command
         self.pending = command
         self._acks[command.id] = asyncio.Event()
+        while len(self._acks) > MAX_ACKS:
+            del self._acks[next(iter(self._acks))]
         self.recent.appendleft(
             {"title": command.title, "page_url": command.page_url, "at": self._clock()}
         )

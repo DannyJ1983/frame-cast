@@ -51,8 +51,9 @@
     var self = this;
     var opts = options || {};
     var avplay = this.avplay;
-    this._closeQuietly();
+    // Bump the generation first so callbacks from the stream being closed are ignored.
     var generation = ++this.generation;
+    this._closeQuietly();
     this.position = 0;
     this.duration = 0;
     this.isLive = Boolean(opts.isLive);

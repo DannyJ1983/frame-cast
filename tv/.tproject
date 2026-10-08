@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<tproject xmlns="http://www.tizen.org/tproject">
+    <platforms>
+        <platform>
+            <name>tv-samsung-5.0</name>
+        </platform>
+    </platforms>
+    <package>
+        <blacklist>
+            <file>build</file>
+            <file>tests</file>
+            <file>build.sh</file>
+        </blacklist>
+    </package>
+</tproject>

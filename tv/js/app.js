@@ -84,6 +84,12 @@
 
   // Player --------------------------------------------------------------------
 
+  if (!window.webapis || !window.webapis.avplay) {
+    // webapis.js comes from the TV itself; without it there is nothing to play video with.
+    hubStatus("Samsung's video player isn't available on this device.", true);
+    return;
+  }
+
   var player = new window.FrameCastPlayer(window.webapis, {
     onState: function (state, detail) {
       if (state === "loading") {

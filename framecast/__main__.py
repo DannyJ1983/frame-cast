@@ -4,6 +4,9 @@
     python -m framecast resolve <page>        show which stream would be sent
     python -m framecast tv-pair --tv-host IP  make the TV ask to allow Frame Cast
     python -m framecast tv-apps --tv-host IP  list the app IDs the TV reports
+
+--config FILE reads KEY=VALUE settings (as in /etc/frame-cast.env) first; values already in
+the environment win. On the Pi, the "frame-cast" command runs this with the service's settings.
 """
 
 from __future__ import annotations
@@ -12,7 +15,10 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import sys
+from pathlib import Path
+from typing import MutableMapping
 
 from .config import RELAY_MODES, Settings
 from .links import extract_url
@@ -20,8 +26,19 @@ from .links import extract_url
 log = logging.getLogger("framecast")
 
 
+def load_config_file(path: Path, environ: MutableMapping[str, str] = os.environ) -> None:
+    """Copy KEY=VALUE lines from ``path`` into ``environ``, unless already set there."""
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        environ.setdefault(key.strip(), value.strip().strip("'\""))
+
+
 def _parser(defaults: Settings) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m framecast", description="Frame Cast home server")
+    parser.add_argument("--config", metavar="FILE", help="read settings from a KEY=VALUE file first")
     parser.add_argument("--host", default=defaults.host, help="address to listen on (default %(default)s)")
     parser.add_argument("--port", type=int, default=defaults.port, help="port to listen on (default %(default)s)")
     parser.add_argument("--relay", choices=RELAY_MODES, default=defaults.relay, help="when to relay streams through the hub (default %(default)s)")
@@ -38,8 +55,6 @@ def _parser(defaults: Settings) -> argparse.ArgumentParser:
 
 
 def _settings_from(args: argparse.Namespace) -> Settings:
-    from pathlib import Path
-
     return Settings(
         host=args.host,
         port=args.port,
@@ -120,6 +135,11 @@ def _tv(settings: Settings, command: str) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     """Entry point for ``python -m framecast``."""
+    early = argparse.ArgumentParser(add_help=False)
+    early.add_argument("--config")
+    known, _ = early.parse_known_args(argv)
+    if known.config:
+        load_config_file(Path(known.config))
     args = _parser(Settings.from_env()).parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,

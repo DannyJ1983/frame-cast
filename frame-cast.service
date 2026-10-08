@@ -1,0 +1,19 @@
+[Unit]
+Description=Frame Cast home server (sends videos from your phone to the TV)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=framecast
+EnvironmentFile=-/etc/frame-cast.env
+WorkingDirectory=/opt/frame-cast
+ExecStart=/opt/frame-cast/.venv/bin/python -m framecast
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

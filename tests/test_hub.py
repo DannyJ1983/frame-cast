@@ -145,3 +145,18 @@ def test_full_queue_drops_rather_than_blocks():
 
 def test_sse_format():
     assert sse("play", {"a": 1}) == 'event: play\ndata: {"a":1}\n\n'
+
+
+def test_old_acks_forgotten():
+    from framecast.hub import MAX_ACKS
+
+    async def run():
+        hub = Hub()
+        first = command("first")
+        hub.play(first)
+        for i in range(MAX_ACKS):
+            hub.play(command(str(i)))
+        assert await hub.wait_for_ack(first.id, 0.01) is False
+        assert len(hub._acks) == MAX_ACKS
+
+    asyncio.run(run())

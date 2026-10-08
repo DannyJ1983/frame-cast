@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest==9.1.1
+# Browser end-to-end test. Uses an existing Chromium; set PLAYWRIGHT_CHROMIUM if needed.
+playwright==1.63.0

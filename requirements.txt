@@ -1,0 +1,6 @@
+# Home server. yt-dlp is the one to keep up to date: sites change often (see README).
+fastapi==0.143.0
+uvicorn==0.54.0
+httpx==0.28.1
+yt-dlp==2026.8.19
+samsungtvws==3.0.6

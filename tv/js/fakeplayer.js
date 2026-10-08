@@ -6,6 +6,14 @@
   "use strict";
   if (window.webapis && window.webapis.avplay) return;
 
+  // Desktop browsers draw a "plugin not supported" box for Samsung's <object>; use a plain div.
+  var object = document.getElementById("av-player");
+  if (object && object.tagName === "OBJECT") {
+    var stand = document.createElement("div");
+    stand.id = "av-player";
+    object.parentNode.replaceChild(stand, object);
+  }
+
   var calls = (window.__avplayCalls = []);
   var state = "NONE";
   var url = "";

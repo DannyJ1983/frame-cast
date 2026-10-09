@@ -22,12 +22,26 @@ phone ──share link──▶ home server (Pi) ──finds the stream──▶
 
 ### On a Raspberry Pi
 
-```sh
-git clone <this repo> frame-cast && cd frame-cast
-sudo ./install.sh
-```
+Works on a Pi 3, 4, 5 or Zero 2 W.
 
-This installs the `frame-cast` service on port 8090 and prints the address to use, such as `http://192.168.1.20:8090`. Open that address on your phone to get the web page.
+1. **Flash the SD card** with [Raspberry Pi Imager](https://www.raspberrypi.com/software/). Choose your Pi model and **Raspberry Pi OS Lite (64-bit)**, under *Raspberry Pi OS (other)*. In the customisation step:
+   - Hostname: `framecast`
+   - Username and password: choose your own
+   - WiFi: your home network's name and password, with your country
+   - SSH: on, with password login
+2. **Boot the Pi** and give it a couple of minutes to join the WiFi.
+3. **Connect from a computer** with `ssh <your username>@framecast.local`.
+4. **Run the setup:**
+
+   ```sh
+   curl -fsSL https://raw.githubusercontent.com/DannyJ1983/frame-cast/main/setup.sh | sudo bash
+   ```
+
+This downloads Frame Cast and installs the `frame-cast` service on port 8090. It takes 5 to 10 minutes on a Pi and prints the address to use at the end, such as `http://192.168.1.20:8090`. Open that address on your phone to get the web page. Run the same command again later to update.
+
+**Fix the Pi's address.** The TV app remembers the address, so reserve it in your router's DHCP settings. On a Virgin Media Hub that's under the advanced settings, as a DHCP reservation. This stops the Pi getting a different address after a restart.
+
+Already have the repo on the Pi? `sudo ./install.sh` from inside it does the same as the setup command.
 
 Settings are in `/etc/frame-cast.env`. Logs: `journalctl -u frame-cast -f`.
 

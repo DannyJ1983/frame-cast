@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Any, AsyncIterator, Callable
 from urllib.parse import parse_qs, urlsplit
@@ -15,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from .channels import ChannelError, ChannelStore
 from .config import Settings
 from .hub import CONTROL_ACTIONS, Event, Hub, PlayCommand, sse
 from .links import extract_url
@@ -29,6 +31,7 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 ACK_TIMEOUT = 6.0  # How long a connected TV app has to confirm it got a link.
 LAUNCH_WAIT = 25.0  # How long to wait for the app to start after asking the TV to open it.
 PING_SECONDS = 15.0
+STREAM_CACHE_SECONDS = 300.0  # Reuse a page's stream this long, so flicking between channels is quick.
 # A well-known public HLS test stream (Big Buck Bunny, H.264), for checking the TV side alone.
 TEST_STREAM_URL = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
 
@@ -120,11 +123,15 @@ def create_app(
     relay: Relay | None = None,
     launcher: TvLauncher | None = None,
     hub: Hub | None = None,
+    channels: ChannelStore | None = None,
 ) -> FastAPI:
     """Build the FastAPI app. Collaborators can be swapped for tests."""
     resolver = resolver or Resolver(sniffer=PageSniffer.from_setting(settings.browser))
     relay = relay or Relay()
     hub = hub or Hub()
+    channels = channels or ChannelStore(settings.state_dir)
+    hub.set_channels(channels.public())
+    stream_cache: dict[str, tuple[float, Stream]] = {}
     if launcher is None and settings.tv_host:
         launcher = TvLauncher(settings.tv_host, settings.tv_app_id, settings.token_file)
     tasks: set[asyncio.Task[None]] = set()
@@ -140,6 +147,8 @@ def create_app(
     app = FastAPI(title="Frame Cast", lifespan=lifespan)
     app.state.hub = hub
     app.state.relay = relay
+    app.state.channels = channels
+    app.state.stream_cache = stream_cache
     app.state.settings = settings
     app.state.tasks = tasks
     # The TV app runs from a local file, so its requests come from another origin.
@@ -179,24 +188,41 @@ def create_app(
         hub.note(message)
         return message
 
+    async def find_stream(url: str) -> Stream:
+        """Resolve a page, reusing a recent answer for the same page."""
+        cached = stream_cache.get(url)
+        if cached and time.monotonic() - cached[0] < STREAM_CACHE_SECONDS:
+            log.info("Reusing the stream found for %s", url)
+            return cached[1]
+        stream = await asyncio.wait_for(asyncio.to_thread(resolver.resolve, url), settings.resolve_timeout)
+        stream_cache[url] = (time.monotonic(), stream)
+        return stream
+
+    async def play_page(url: str, title: str | None = None, channel_id: str | None = None) -> tuple[int, str, str | None]:
+        """Find the stream on ``url`` and send it to the TV. Returns (status, message, title)."""
+        hub.note(f"Looking for the video on {urlsplit(url).hostname}…")
+        try:
+            stream = await find_stream(url)
+        except ResolveError as err:
+            hub.note(str(err), "error")
+            return 422, str(err), None
+        except asyncio.TimeoutError:
+            message = "Took too long to find the video on that page."
+            hub.note(message, "error")
+            return 504, message, None
+        command = make_command(stream, settings, relay)
+        if title:
+            command.title = title
+        command.channel_id = channel_id
+        return 200, await dispatch(command), command.title
+
     @app.post("/api/send")
     async def send(request: Request) -> Response:
         url = extract_url(await read_shared_text(request))
         if not url:
             return reply(request, 400, "That doesn't look like a web address.")
-        hub.note(f"Looking for the video on {urlsplit(url).hostname}…")
-        try:
-            stream = await asyncio.wait_for(asyncio.to_thread(resolver.resolve, url), settings.resolve_timeout)
-        except ResolveError as err:
-            hub.note(str(err), "error")
-            return reply(request, 422, str(err))
-        except asyncio.TimeoutError:
-            message = "Took too long to find the video on that page."
-            hub.note(message, "error")
-            return reply(request, 504, message)
-        command = make_command(stream, settings, relay)
-        message = await dispatch(command)
-        return reply(request, 200, message, title=command.title)
+        status, message, title = await play_page(url)
+        return reply(request, status, message, title=title)
 
     @app.post("/api/test")
     async def send_test(request: Request) -> Response:
@@ -245,8 +271,108 @@ def create_app(
             return reply(request, 400, "Expected JSON.")
         if not isinstance(data, dict):
             return reply(request, 400, "Expected a JSON object.")
+        current = hub.current
+        if data.get("state") == "error" and current is not None and data.get("command_id") == current.id:
+            stream_cache.pop(current.page_url, None)  # it may have expired; look afresh next time
         hub.report_status(data)
         return Response(status_code=204)
+
+    # Saved channels ------------------------------------------------------------
+
+    def channels_changed() -> None:
+        hub.set_channels(channels.public())
+
+    async def read_json(request: Request) -> dict[str, Any]:
+        try:
+            data = json.loads(await request.body() or b"{}")
+        except ValueError:
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def channel_error(request: Request, err: ChannelError) -> Response:
+        status = 404 if "doesn't exist" in str(err) else 400
+        return reply(request, status, str(err))
+
+    @app.get("/api/channels")
+    async def list_channels() -> dict[str, Any]:
+        return {"channels": channels.public()}
+
+    @app.post("/api/channels")
+    async def add_channel(request: Request) -> Response:
+        data = await read_json(request)
+        try:
+            channel = channels.add(data.get("name"), data.get("url"))
+        except ChannelError as err:
+            return channel_error(request, err)
+        channels_changed()
+        return JSONResponse(channel.public(), status_code=201)
+
+    @app.patch("/api/channels/{channel_id}")
+    async def edit_channel(channel_id: str, request: Request) -> Response:
+        data = await read_json(request)
+        old = channels.get(channel_id)
+        try:
+            channel = channels.update(channel_id, name=data.get("name"), url=data.get("url"))
+        except ChannelError as err:
+            return channel_error(request, err)
+        if old is not None:
+            stream_cache.pop(old.url, None)
+        channels_changed()
+        return JSONResponse(channel.public())
+
+    @app.delete("/api/channels/{channel_id}")
+    async def delete_channel(channel_id: str, request: Request) -> Response:
+        try:
+            channels.delete(channel_id)
+        except ChannelError as err:
+            return channel_error(request, err)
+        channels_changed()
+        return Response(status_code=204)
+
+    @app.post("/api/channels/{channel_id}/move")
+    async def move_channel(channel_id: str, request: Request) -> Response:
+        data = await read_json(request)
+        try:
+            channels.move(channel_id, -1 if int(data.get("step", 0)) < 0 else 1)
+        except (ChannelError, ValueError) as err:
+            return channel_error(request, ChannelError(str(err)))
+        channels_changed()
+        return Response(status_code=204)
+
+    @app.put("/api/channels/{channel_id}/logo")
+    async def put_logo(channel_id: str, request: Request) -> Response:
+        try:
+            channel = channels.set_logo(channel_id, await request.body())
+        except ChannelError as err:
+            return channel_error(request, err)
+        channels_changed()
+        return JSONResponse(channel.public())
+
+    @app.delete("/api/channels/{channel_id}/logo")
+    async def delete_logo(channel_id: str, request: Request) -> Response:
+        try:
+            channel = channels.remove_logo(channel_id)
+        except ChannelError as err:
+            return channel_error(request, err)
+        channels_changed()
+        return JSONResponse(channel.public())
+
+    @app.get("/api/channels/{channel_id}/logo")
+    async def get_logo(channel_id: str) -> Response:
+        found = channels.logo_file(channel_id)
+        if found is None:
+            return PlainTextResponse("No logo", status_code=404)
+        path, media_type = found
+        # The address carries ?v=<version>, so a changed logo gets a new address.
+        return FileResponse(path, media_type=media_type, headers={"cache-control": "public, max-age=86400"})
+
+    @app.post("/api/channels/{channel_id}/play")
+    async def play_channel(channel_id: str, request: Request) -> Response:
+        channel = channels.get(channel_id)
+        if channel is None:
+            return reply(request, 404, "That channel doesn't exist any more.")
+        status, message, title = await play_page(channel.url, title=channel.name, channel_id=channel.id)
+        return reply(request, status, message, title=title)
 
     @app.api_route("/p/{rest:path}", methods=["GET", "HEAD"])
     async def relay_stream(request: Request) -> Response:

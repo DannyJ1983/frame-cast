@@ -12,10 +12,13 @@ def command(title="Clip", created=None):
     return cmd
 
 
-def drain(queue):
+def drain(queue, include_channels=False):
+    """Queued events; the channel list every TV gets on connecting is left out unless asked for."""
     items = []
     while not queue.empty():
-        items.append(queue.get_nowait())
+        item = queue.get_nowait()
+        if include_channels or item[0] != "channels":
+            items.append(item)
     return items
 
 
@@ -139,6 +142,21 @@ def test_full_queue_drops_rather_than_blocks():
         for _ in range(queue.maxsize + 5):
             hub.control("toggle")
         assert queue.full()
+
+    asyncio.run(run())
+
+
+def test_channels_sent_on_connect_and_on_change():
+    async def run():
+        hub = Hub()
+        hub.set_channels([{"id": "a", "name": "A"}])
+        tv = hub.subscribe_tv()
+        phone = hub.subscribe_phone()
+        assert drain(tv, include_channels=True)[0] == ("channels", {"channels": [{"id": "a", "name": "A"}]})
+        assert ("channels", {"channels": [{"id": "a", "name": "A"}]}) in drain(phone, include_channels=True)
+        hub.set_channels([])
+        assert drain(tv, include_channels=True) == [("channels", {"channels": []})]
+        assert ("channels", {"channels": []}) in drain(phone, include_channels=True)
 
     asyncio.run(run())
 

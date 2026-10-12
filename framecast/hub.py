@@ -43,6 +43,7 @@ class PlayCommand:
     is_live: bool = False
     user_agent: str | None = None
     relayed: bool = False
+    channel_id: str | None = None
     id: str = field(default_factory=lambda: secrets.token_urlsafe(6))
     created: float = field(default_factory=time.time)
 
@@ -69,6 +70,7 @@ class Hub:
         self.tv_status: dict[str, Any] = {"state": "idle"}
         self.last_message: dict[str, Any] | None = None
         self.recent: deque[dict[str, Any]] = deque(maxlen=10)
+        self.channels: list[dict[str, Any]] = []
 
     # Subscribers ---------------------------------------------------------------
 
@@ -82,6 +84,7 @@ class Hub:
         queue: asyncio.Queue[Event] = asyncio.Queue(QUEUE_SIZE)
         self._tvs.add(queue)
         log.info("TV app connected (%d connected)", len(self._tvs))
+        queue.put_nowait(("channels", {"channels": self.channels}))
         pending = self.pending
         if pending is not None:
             if self._clock() - pending.created <= PENDING_TTL:
@@ -103,6 +106,7 @@ class Hub:
         queue: asyncio.Queue[Event] = asyncio.Queue(QUEUE_SIZE)
         self._phones.add(queue)
         queue.put_nowait(("state", self.state()))
+        queue.put_nowait(("channels", {"channels": self.channels}))
         return queue
 
     def unsubscribe_phone(self, queue: asyncio.Queue[Event]) -> None:
@@ -183,6 +187,13 @@ class Hub:
             log.warning("TV reported an error: %s", status.get("message"))
         self._publish_state()
 
+    def set_channels(self, channels: list[dict[str, Any]]) -> None:
+        """Replace the saved-channel list and send it to every TV and phone."""
+        self.channels = list(channels)
+        event: Event = ("channels", {"channels": self.channels})
+        self._to_tvs(event)
+        self._to_phones(event)
+
     def note(self, text: str, level: str = "info") -> None:
         """Show a progress or error message on phone pages."""
         self.last_message = {"text": text, "level": level, "at": self._clock()}
@@ -211,6 +222,7 @@ class Hub:
                 "page_url": current.page_url,
                 "is_live": current.is_live,
                 "relayed": current.relayed,
+                "channel_id": current.channel_id,
             },
             "pending": self.pending is not None,
             "recent": list(self.recent),

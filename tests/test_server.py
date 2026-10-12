@@ -242,13 +242,14 @@ def test_launcher_reports_tv_off(settings, fake_resolver):
         assert launcher.calls == []
 
 
-def _read_events(response, wanted, out):
+def _read_events(response, wanted, out, only=None):
     event = None
     for line in response.iter_lines():
         if line.startswith("event: "):
             event = line[7:]
         elif line.startswith("data: ") and event:
-            out.append((event, json.loads(line[6:])))
+            if only is None or event == only:
+                out.append((event, json.loads(line[6:])))
             if len(out) >= wanted:
                 return
 
@@ -261,7 +262,7 @@ def test_connected_tv_gets_play_and_acks(live_server):
         with httpx.Client(timeout=10) as http:
             with http.stream("GET", f"{live_server.url}/api/tv/events") as response:
                 assert response.headers["content-type"].startswith("text/event-stream")
-                _read_events(response, 1, received)
+                _read_events(response, 1, received, only="play")
             play = received[0][1]
             http.post(
                 f"{live_server.url}/api/tv/status",

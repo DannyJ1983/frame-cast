@@ -58,31 +58,51 @@ Then open `http://localhost:8090` for the phone page and `http://localhost:8090/
 
 You do this once, from a Windows, Mac or Linux computer. The TV doesn't need rooting.
 
-Samsung has retired Tizen Studio. These steps use its replacements: the Tizen SDK command-line tools and the VS Code extension for Tizen. The steps haven't been run against the new tools yet, and menu names may differ slightly.
+These are the steps that worked on a 2019 Frame (QE43LS03R) from a Mac. They use Samsung's command-line tools only: Tizen Studio is retired, and no VS Code or Samsung account was needed.
 
-**The computer and the TV must be on the same network.** If your home has mesh WiFi plugged into the router, the two can end up on different networks. Check that both IP addresses start the same way, for example 192.168.68.
+**The computer and the TV must be on the same network.** If your home has mesh WiFi plugged into the Virgin Hub, the two can end up on different networks. Check both IP addresses start the same way, for example 192.168.0. If not, join the computer to the TV's WiFi for the install.
 
-1. **Turn on Developer Mode on the TV.** Open **Apps**, then type **1 2 3 4 5** with the remote's number buttons or the on-screen number pad. Switch **Developer mode** on and enter your computer's IP address. Then restart the TV: hold the power button until it switches off and on again.
-2. **Install the Tizen SDK.** Download **Tizen SDK 10 with CLI** from the [Tizen tools page](https://samsungtizenos.com/tools-download/) and run it. Note the folder it installs into.
-3. **Install VS Code and the Tizen extension.** In [VS Code](https://code.visualstudio.com/)'s Extensions view, search for **Tizen** and install the extension for Tizen. Point it at the SDK folder if it asks. Then open **Tizen: Package Manager** from the Command Palette (Cmd/Ctrl+Shift+P) and install the **Samsung Certificate Extension**, plus the **TV Extensions** if they're listed.
-4. **Connect to the TV.** Run `sdb connect <TV's IP>` in a terminal (`sdb` is in the SDK's `tools` folder), or use the extension's Device Manager.
-5. **Make a Samsung certificate.** Open **Tizen: Certificate Manager** from the Command Palette and choose **Create Samsung Certificate**, for a TV.
-   - Name the profile (for example `frame`).
-   - Create an author certificate, then sign in with a Samsung account when asked.
-   - For the distributor certificate, make sure the TV's DUID is listed. It fills in from the connected TV.
-6. **Build and install.** In a terminal (Git Bash on Windows), from this repo:
+1. **Install the Tizen SDK.** Download **Tizen SDK 10 with CLI** from the [Tizen tools page](https://samsungtizenos.com/tools-download/), then run it from a terminal:
 
    ```sh
-   CERT_PROFILE=frame bash tv/build.sh --hub http://192.168.1.20:8090 --install 192.168.1.50
+   chmod +x ~/Downloads/web-cli_Tizen_SDK_10.0_*.bin
+   ~/Downloads/web-cli_Tizen_SDK_10.0_*.bin
    ```
 
-   - Use your server's address for `--hub` and the TV's IP for `--install`.
-   - If the script can't find the SDK, put `TIZEN_SDK=<the SDK folder>` in front of the command.
-   - The script also gives your certificate permission to install on the TV (`tizen install-permit`), which Samsung certificates need once.
+   On a Mac with an Apple chip, "Bad CPU type in executable" means you need Rosetta first: run `softwareupdate --install-rosetta --agree-to-license` and then run the installer again. The installer puts the tools in `~/tizen-studio`.
+
+2. **Put the tools on your PATH:**
+
+   ```sh
+   echo 'export PATH="$HOME/tizen-studio/tools/ide/bin:$HOME/tizen-studio/tools:$PATH"' >> ~/.zshrc
+   source ~/.zshrc
+   ```
+
+3. **Make a certificate.** A plain Tizen certificate was enough for the 2019 Frame. Use your own password, letters and numbers only:
+
+   ```sh
+   tizen certificate -a framecast -p YourPassword -c GB -n FrameCast -f framecast
+   tizen security-profiles add -n framecast -a ~/tizen-studio-data/keystore/author/framecast.p12 -p YourPassword
+   tizen cli-config "profiles.path=$HOME/tizen-studio-data/profile/profiles.xml"
+   ```
+
+   Newer TVs may refuse a plain Tizen certificate. They need a Samsung certificate, made with the Certificate Manager in the Tizen extension for VS Code.
+
+4. **Turn on Developer Mode on the TV.**
+   1. Press Home, open **Apps**, and type **1 2 3 4 5**. On a remote without number buttons, the **123** button brings up a number pad.
+   2. Switch **Developer mode** on and enter your computer's IP address.
+   3. **Restart the TV by unplugging it at the wall for 30 seconds.** On The Frame, the power button only switches to Art Mode, and the setting doesn't take effect until a real restart.
+   4. Check that **Developer Mode** now shows at the top of the Apps screen. Then check that `nc -vz <TV's IP> 26101` says "succeeded".
+
+5. **Build and install.** From this repo (or the unzipped download from GitHub):
+
+   ```sh
+   CERT_PROFILE=framecast bash tv/build.sh --hub http://<server's IP>:8090 --install <TV's IP>
+   ```
 
    **Frame Cast** then appears in the TV's Apps.
 
-Open Frame Cast on the TV. It should say **Ready. Connected to http://…**. To change the server address later, press OK on that screen.
+Open Frame Cast on the TV. It should say **Ready. Connected to http://…**. To change the server address later, press OK on that screen. To update the app, run step 5 again with the computer back on the TV's network and Developer Mode still on.
 
 ## 3. Share from your phone
 
@@ -142,8 +162,9 @@ This runs about 90 tests:
 
 Checked here: everything except the parts that need the TV. That covers stream finding (against yt-dlp-shaped data), the relay, the server, the phone page, and the TV app's logic and screens in Chromium with the stand-in player. The Pi installer was also trial-run in a container, with systemd stubbed out.
 
+Checked on the real TV: building, signing and installing with `tv/build.sh` and a plain Tizen certificate, from a Mac.
+
 Needs the real TV:
 - AVPlay playback itself: formats, 4K mode, the user agent setting, and suspend/resume
 - the remote's media keys
-- the build and install script against the new Tizen SDK tools
 - opening the app automatically over Samsung's remote-control interface

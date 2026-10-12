@@ -7,13 +7,10 @@
 #   tv/build.sh --hub http://192.168.1.20:8090 --install 192.168.1.50
 #       also connects to the TV (in Developer Mode) and installs it
 #
-# Needs the Tizen SDK's command-line tools (the "Tizen SDK with CLI" installer, or the SDK the
-# VS Code extension installs; Tizen Studio itself is retired) and a Samsung certificate profile
-# made in the VS Code extension's Certificate Manager (see the README). Set CERT_PROFILE to pick
-# a profile by name; otherwise the active profile is used. If the SDK isn't in a usual place,
-# set TIZEN_SDK to its folder.
-#
-# Not yet run against a real SDK install or TV: if a step fails, send the error.
+# Needs the Tizen SDK's command-line tools (the "Tizen SDK with CLI" installer; Tizen Studio
+# itself is retired) and a certificate profile: a plain Tizen one made with "tizen certificate"
+# worked on a 2019 Frame (see the README). Set CERT_PROFILE to pick a profile by name; otherwise
+# the active profile is used. If the SDK isn't in a usual place, set TIZEN_SDK to its folder.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

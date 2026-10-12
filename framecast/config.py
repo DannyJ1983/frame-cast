@@ -35,7 +35,7 @@ class Settings:
     tv_host: str | None = None
     tv_app_id: str = DEFAULT_APP_ID
     state_dir: Path = Path("state")
-    resolve_timeout: float = 60.0
+    resolve_timeout: float = 90.0
     browser: str = "auto"
     tv_dir: Path | None = field(default_factory=_default_tv_dir)
 

@@ -22,9 +22,12 @@ from framecast.sniffer import (
     PageSniffer,
     SniffResult,
     can_fetch_directly,
+    channel_hint,
     embed_url,
+    find_stream_urls,
     is_ad,
     media_kind,
+    mentions_stream,
     pick,
     to_stream,
 )
@@ -57,6 +60,43 @@ def test_is_ad():
     assert is_ad("https://imasdk.googleapis.com/js/sdkloader/ima3.js")
     assert not is_ad("https://cdn.example.com/live.m3u8")
     assert not is_ad("https://notdoubleclick.net.example.com/x")
+
+
+def test_mentions_stream():
+    assert mentions_stream("https://site/proxy?url=https%3A%2F%2Fcdn%2Flive.m3u8")
+    assert not mentions_stream("https://site/app.js")
+
+
+def test_channel_hint():
+    assert channel_hint("https://famelack.com/tv/us/iWHPk6Fp0OGiq7") == "iWHPk6Fp0OGiq7"
+    assert channel_hint("https://site/watch-live/") == "watch-live"
+    assert channel_hint("https://site/live") is None
+
+
+def test_find_stream_urls_matches_channel_id():
+    data = (
+        '[{"id":"aaaaaaa1","url":"https:\\/\\/one.example\\/a\\/index.m3u8"},'
+        '{"id":"bbbbbbb2","url":"https://two.example/b/master.m3u8?t=1"},'
+        '{"id":"ccccccc3","url":"https://three.example/c.mpd"}]'
+    )
+    assert find_stream_urls(data, "bbbbbbb2")[0] == "https://two.example/b/master.m3u8?t=1"
+    assert find_stream_urls(data, "aaaaaaa1")[0] == "https://one.example/a/index.m3u8"
+    # A list of many channels with nothing to say which one: don't guess.
+    assert find_stream_urls(data) == []
+    assert find_stream_urls('{"stream":"https://one.example/live.m3u8"}') == ["https://one.example/live.m3u8"]
+
+
+def test_pick_falls_back_to_mentioned():
+    result = SniffResult(mentioned=["https://cdn/live/index.m3u8"])
+    assert pick(result).url == "https://cdn/live/index.m3u8"
+    assert pick(result).kind == "hls"
+    result.media.append(Captured("https://cdn/other.m3u8", "hls"))
+    assert pick(result).url == "https://cdn/other.m3u8"
+
+
+def test_youtube_video_files_ignored():
+    result = SniffResult(media=[Captured("https://rr1---sn.googlevideo.com/videoplayback?x=1", "file")])
+    assert pick(result) is None
 
 
 def test_embed_url():
@@ -213,11 +253,33 @@ PAGES = {
     # Another site's player embedded in the page.
     "youtube": """<title>Embedded</title><iframe src="https://www.youtube.com/embed/abc123XYZ"></iframe>""",
     "nothing": """<title>No video here</title><p>Just words.</p>""",
+    # A "Display" button comes first and must not be mistaken for play.
+    "display": """<title>Display first</title>
+        <button aria-label="Display settings" onclick="document.title='wrong button'">D</button>
+        <button aria-label="Play live" onclick="fetch('/media/display/master.m3u8')">P</button>""",
+    # A playlist served under an address with no .m3u8 and as text/plain.
+    "oddname": """<title>Odd name</title><script>setTimeout(() => fetch('/odd/playlist?id=7'), 200)</script>""",
+    # The player never starts (blocked, say), but the page's channel list names the stream.
+    "listed": """<title>Listed</title><script>fetch('/api/channels.json')</script>""",
 }
 
 
 async def _page(request: Request) -> Response:
     return HTMLResponse(f"<!doctype html>{PAGES[request.path_params['name']]}")
+
+
+async def _odd(request: Request) -> Response:
+    return PlainTextResponse(MANIFEST)
+
+
+async def _channels(request: Request) -> Response:
+    data = [
+        {"id": "aaaaaaa1", "name": "One", "url": "https://one.example/a/index.m3u8"},
+        {"id": "chan12345", "name": "Two", "url": "https://two.example/b/master.m3u8"},
+    ]
+    import json
+
+    return Response(json.dumps(data), media_type="application/json")
 
 
 async def _media(request: Request) -> Response:
@@ -227,9 +289,22 @@ async def _media(request: Request) -> Response:
     return Response(MANIFEST, media_type="application/vnd.apple.mpegurl")
 
 
+async def _page_by_id(request: Request) -> Response:
+    # Like famelack: /tv/<country>/<channel id>, with the list of channels fetched by script.
+    return HTMLResponse(f"<!doctype html>{PAGES['listed']}")
+
+
 @pytest.fixture(scope="module")
 def site():
-    app = Starlette(routes=[Route("/page/{name}", _page), Route("/media/{path:path}", _media)])
+    app = Starlette(
+        routes=[
+            Route("/page/{name}", _page),
+            Route("/tv/{country}/{name}", _page_by_id),
+            Route("/media/{path:path}", _media),
+            Route("/odd/playlist", _odd),
+            Route("/api/channels.json", _channels),
+        ]
+    )
     server = LiveServer(app)
     server.start()
     yield server
@@ -270,6 +345,26 @@ def test_browser_finds_embeds(site, sniffer):
 def test_browser_page_without_video(site, sniffer):
     sniffer_fast = PageSniffer(sniffer.browser_path, wait_seconds=4)
     assert pick(sniffer_fast.sniff(f"{site.url}/page/nothing")) is None
+
+
+def test_browser_skips_display_button(site, sniffer):
+    result = sniffer.sniff(f"{site.url}/page/display")
+    assert pick(result).url == f"{site.url}/media/display/master.m3u8"
+    assert result.title == "Display first"
+
+
+def test_browser_finds_playlist_under_odd_name(site, sniffer):
+    result = sniffer.sniff(f"{site.url}/page/oddname")
+    assert pick(result).url == f"{site.url}/odd/playlist?id=7"
+    assert pick(result).kind == "hls"
+
+
+def test_browser_uses_channel_list_when_player_never_starts(site):
+    quick = PageSniffer(_chromium(), wait_seconds=2)
+    result = quick.sniff(f"{site.url}/tv/uk/chan12345")
+    assert result.media == []
+    assert pick(result).url == "https://two.example/b/master.m3u8"
+    assert any("/api/channels.json" in line for line in result.log)
 
 
 def test_resolver_end_to_end_with_relay_decision(site, sniffer):

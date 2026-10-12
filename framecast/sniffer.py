@@ -22,7 +22,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 import httpx
 
@@ -31,9 +31,13 @@ from .resolver import Stream
 log = logging.getLogger(__name__)
 
 BROWSER_NAMES = ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable")
-WAIT_SECONDS = 15.0  # How long to wait for the player to ask for a stream.
+WAIT_SECONDS = 25.0  # How long to wait, once the page has loaded, for the player to ask for a stream.
 CLICK_AFTER_SECONDS = 3.0  # If nothing has started by then, try pressing play.
+CLICK_AGAIN_AFTER_SECONDS = 10.0  # Then try clicking the middle of the page, where players sit.
 LOAD_TIMEOUT_MS = 20000
+MAX_PEEKS = 60  # Responses whose content is checked for a playlist or stream addresses.
+MAX_PEEK_BYTES = 2_000_000
+MAX_LOG_LINES = 400
 
 # Requests to these hosts (and their subdomains) are ads or tracking, never the programme.
 AD_HOSTS = (
@@ -42,12 +46,20 @@ AD_HOSTS = (
     "springserve.com", "spotxchange.com", "freewheel.tv", "fwmrm.net", "innovid.com", "moatads.com",
     "pubmatic.com", "rubiconproject.com", "teads.tv", "taboola.com", "outbrain.com", "scorecardresearch.com",
 )
-# Common play buttons, tried in order when a player waits for a press.
+# Video hosts whose files can't be played on their own (YouTube's are split and signed).
+# Embedded YouTube players are handed to yt-dlp instead.
+SKIP_HOSTS = ("googlevideo.com", "gvt1.com")
+# Common play buttons, tried in order when a player waits for a press. Labels must start
+# with "play": a plain "contains" match would also hit buttons like "Display settings".
 PLAY_SELECTORS = (
     ".vjs-big-play-button", ".jw-icon-display", ".plyr__control--overlaid", ".fp-play",
-    "button[aria-label*='play' i]", "[class*='play-button' i]", "[class*='playbutton' i]",
-    "[class*='play_button' i]", "video",
+    "button[aria-label^='play' i]", "[role='button'][aria-label^='play' i]", "button[title^='play' i]",
+    "[class*='play-button' i]", "[class*='playbutton' i]", "[class*='play_button' i]",
+    "[class*='play-icon' i]", "video",
 )
+_STREAM_URL = re.compile(r"""https?://[^\s"'<>\\]+?\.(?:m3u8|mpd)(?:\?[^\s"'<>\\]*)?""", re.IGNORECASE)
+_PEEK_TYPES = ("text/", "json", "octet-stream", "javascript", "xml")
+_LOGGED_TYPES_SKIPPED = {"image", "font", "stylesheet"}
 _YOUTUBE_EMBED = re.compile(r"^https?://(?:www\.)?youtube(?:-nocookie)?\.com/embed/([\w-]{6,})")
 _OTHER_EMBEDS = (
     re.compile(r"^https?://player\.vimeo\.com/video/\d+"),
@@ -69,12 +81,20 @@ class Captured:
 
 @dataclass
 class SniffResult:
-    """What a page asked for while it loaded."""
+    """What a page asked for while it loaded.
+
+    ``media`` are streams the player actually requested. ``mentioned`` are stream
+    addresses found in the page's own data (a channel list, say) that the player
+    didn't get round to requesting. ``log`` lists the page's requests, for
+    working out why a page didn't give up its video.
+    """
 
     title: str = ""
     media: list[Captured] = field(default_factory=list)
+    mentioned: list[str] = field(default_factory=list)
     embeds: list[str] = field(default_factory=list)
     cookies: dict[str, str] = field(default_factory=dict)  # url -> Cookie header for that url
+    log: list[str] = field(default_factory=list)
 
 
 def media_kind(url: str, content_type: str = "") -> str | None:
@@ -92,10 +112,53 @@ def media_kind(url: str, content_type: str = "") -> str | None:
     return None
 
 
+def _host_in(url: str, hosts: tuple[str, ...]) -> bool:
+    host = (urlsplit(url).hostname or "").lower()
+    return any(host == h or host.endswith("." + h) for h in hosts)
+
+
 def is_ad(url: str) -> bool:
     """True if the request goes to a known ad or tracking host."""
-    host = (urlsplit(url).hostname or "").lower()
-    return any(host == ad or host.endswith("." + ad) for ad in AD_HOSTS)
+    return _host_in(url, AD_HOSTS)
+
+
+def _ignored(url: str) -> bool:
+    return is_ad(url) or _host_in(url, SKIP_HOSTS)
+
+
+def mentions_stream(url: str) -> bool:
+    """True if a stream address appears anywhere in ``url``, such as a proxy's query string."""
+    lowered = unquote(url).lower()
+    return ".m3u8" in lowered or ".mpd" in lowered
+
+
+def channel_hint(page_url: str) -> str | None:
+    """The last part of a page address if it looks like an ID, to match up with a channel list."""
+    segment = urlsplit(page_url).path.rstrip("/").rsplit("/", 1)[-1]
+    return segment if len(segment) >= 6 and re.fullmatch(r"[\w-]+", segment) else None
+
+
+def find_stream_urls(text: str, hint: str | None = None) -> list[str]:
+    """Stream addresses written in ``text`` (JSON or HTML), best match first.
+
+    With a ``hint`` (a channel ID from the page address) only addresses near a
+    mention of it count, nearest first. Without one, an address is only trusted
+    if it's the only one, since a list of many channels says nothing about which.
+    """
+    text = text.replace("\\/", "/").replace("\\u002F", "/").replace("\\u002f", "/")
+    found = [(m.start(), m.group(0)) for m in _STREAM_URL.finditer(text)]
+    if not found:
+        return []
+    if hint and hint in text:
+        ranked: dict[str, int] = {}
+        for spot in (m.start() for m in re.finditer(re.escape(hint), text)):
+            for position, url in found:
+                distance = abs(position - spot)
+                if distance <= 3000 and distance < ranked.get(url, 10**9):
+                    ranked[url] = distance
+        return sorted(ranked, key=ranked.get)
+    distinct = list(dict.fromkeys(url for _, url in found))
+    return distinct if len(distinct) == 1 else []
 
 
 def embed_url(url: str) -> str | None:
@@ -109,11 +172,19 @@ def embed_url(url: str) -> str | None:
 
 
 def pick(result: SniffResult) -> Captured | None:
-    """Choose the stream to play: the first manifest, preferring HLS, else the first video file."""
+    """Choose the stream to play.
+
+    The player's own requests come first: a manifest, preferring HLS, else a video
+    file. Failing those, a stream address found in the page's data.
+    """
     for kind in ("hls", "dash", "file"):
         for captured in result.media:
-            if captured.kind == kind and not is_ad(captured.url):
+            if captured.kind == kind and not _ignored(captured.url):
                 return captured
+    for url in result.mentioned:
+        kind = media_kind(url) or ("dash" if ".mpd" in url.lower() else "hls")
+        if not _ignored(url):
+            return Captured(url, kind)
     return None
 
 
@@ -204,9 +275,10 @@ class PageSniffer:
 
         result = SniffResult()
         seen: set[str] = set()
+        peeks: list[Any] = []  # responses whose content is worth a look afterwards
 
         def note(url: str, kind: str | None, headers: dict[str, str]) -> None:
-            if kind and url not in seen and not is_ad(url):
+            if kind and url not in seen and not _ignored(url):
                 seen.add(url)
                 result.media.append(Captured(url, kind, dict(headers)))
                 log.info("Page asked for a %s stream: %s", kind, url)
@@ -217,10 +289,35 @@ class PageSniffer:
                 result.embeds.append(embed)
                 log.info("Page embeds another site's player: %s", embed)
 
+        def record(line: str) -> None:
+            if len(result.log) < MAX_LOG_LINES:
+                result.log.append(line)
+            log.debug("Browser: %s", line)
+
         def on_request(request: Any) -> None:
             note(request.url, media_kind(request.url), request.headers)
             if request.resource_type == "document":
                 note_embed(request.url)
+
+        def on_response(response: Any) -> None:
+            request = response.request
+            ctype = response.headers.get("content-type", "").split(";")[0].strip().lower()
+            kind = media_kind(response.url, ctype)
+            note(response.url, kind, request.headers)
+            if request.resource_type not in _LOGGED_TYPES_SKIPPED:
+                record(f"{response.status} {request.resource_type:<9} {ctype or '-':<32} {response.url[:200]}")
+            worth_a_look = (
+                kind is None
+                and not _ignored(response.url)
+                and request.resource_type in ("xhr", "fetch", "document", "script", "other")
+                and (mentions_stream(response.url) or not ctype or any(t in ctype for t in _PEEK_TYPES))
+            )
+            if worth_a_look and len(peeks) < MAX_PEEKS:
+                peeks.append(response)
+
+        def on_failed(request: Any) -> None:
+            if request.resource_type not in _LOGGED_TYPES_SKIPPED:
+                record(f"FAILED {request.resource_type:<9} {request.failure or ''} {request.url[:200]}")
 
         with sync_playwright() as pw:
             browser = pw.chromium.launch(
@@ -233,28 +330,16 @@ class PageSniffer:
                     user_agent=_chrome_user_agent(browser.version),
                     viewport={"width": 1280, "height": 720},
                 )
+                # Listen on the whole context so requests from popups and workers count too.
+                context.on("request", on_request)
+                context.on("response", on_response)
+                context.on("requestfailed", on_failed)
                 page = context.new_page()
-                page.on("request", on_request)
-                page.on(
-                    "response",
-                    lambda r: note(r.url, media_kind(r.url, r.headers.get("content-type", "")), r.request.headers),
-                )
-                started = time.monotonic()
                 try:
                     page.goto(page_url, wait_until="domcontentloaded", timeout=LOAD_TIMEOUT_MS)
                 except PlaywrightError as err:
                     log.info("Page didn't finish loading (%s); carrying on", err.message.splitlines()[0])
-                clicked = False
-                while time.monotonic() - started < self.wait_seconds:
-                    elapsed = time.monotonic() - started
-                    if any(m.kind in ("hls", "dash") for m in result.media):
-                        break
-                    if result.embeds and elapsed > CLICK_AFTER_SECONDS + 2:
-                        break  # an embedded player from a site yt-dlp knows; no need to wait longer
-                    if not clicked and elapsed > CLICK_AFTER_SECONDS:
-                        self._press_play(page)
-                        clicked = True
-                    page.wait_for_timeout(250)
+                self._wait_for_player(page, result)
                 result.title = self._title(page)
                 for frame in page.frames:
                     note_embed(frame.url)
@@ -263,6 +348,8 @@ class PageSniffer:
                         note_embed(src)
                 except PlaywrightError:
                     pass
+                if not any(m.kind in ("hls", "dash") for m in result.media):
+                    self._look_inside(peeks, result, note, channel_hint(page_url))
                 for captured in result.media:
                     cookies = context.cookies([captured.url])
                     if cookies:
@@ -270,6 +357,51 @@ class PageSniffer:
             finally:
                 browser.close()
         return result
+
+    def _wait_for_player(self, page: Any, result: SniffResult) -> None:
+        """Wait for a manifest request, pressing play along the way if nothing starts."""
+        started = time.monotonic()
+        pressed = clicked_middle = False
+        while time.monotonic() - started < self.wait_seconds:
+            elapsed = time.monotonic() - started
+            if any(m.kind in ("hls", "dash") for m in result.media):
+                return
+            if result.embeds and elapsed > CLICK_AFTER_SECONDS + 2:
+                return  # an embedded player from a site yt-dlp knows; no need to wait longer
+            if not pressed and elapsed > CLICK_AFTER_SECONDS:
+                self._press_play(page)
+                pressed = True
+            if not clicked_middle and elapsed > CLICK_AGAIN_AFTER_SECONDS:
+                try:
+                    page.mouse.click(640, 300)
+                    log.info("Clicked the middle of the page")
+                except Exception:
+                    pass
+                clicked_middle = True
+            page.wait_for_timeout(250)
+
+    @staticmethod
+    def _look_inside(peeks: list[Any], result: SniffResult, note: Any, hint: str | None) -> None:
+        """Check downloaded files for a playlist served under an odd name, or stream addresses in data."""
+        order = {"xhr": 0, "fetch": 0, "document": 1, "other": 2, "script": 3}
+        for response in sorted(peeks, key=lambda r: order.get(r.request.resource_type, 4)):
+            try:
+                body = response.body()
+            except Exception:  # redirects and cancelled requests have no body
+                continue
+            if not body or len(body) > MAX_PEEK_BYTES:
+                continue
+            head = body[:300].lstrip()
+            if head.startswith(b"#EXTM3U"):
+                note(response.url, "hls", response.request.headers)
+                continue
+            if b"<MPD" in head:
+                note(response.url, "dash", response.request.headers)
+                continue
+            for url in find_stream_urls(body.decode("utf-8", errors="replace"), hint):
+                if url not in result.mentioned:
+                    result.mentioned.append(url)
+                    log.info("Page's data mentions a stream: %s", url)
 
     @staticmethod
     def _title(page: Any) -> str:

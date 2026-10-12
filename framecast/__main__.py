@@ -2,6 +2,7 @@
 
     python -m framecast                       run the hub (default port 8090)
     python -m framecast resolve <page>        show which stream would be sent
+    python -m framecast sniff <page>          show everything the hidden browser saw on a page
     python -m framecast tv-pair --tv-host IP  make the TV ask to allow Frame Cast
     python -m framecast tv-apps --tv-host IP  list the app IDs the TV reports
 
@@ -50,6 +51,8 @@ def _parser(defaults: Settings) -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command")
     resolve = sub.add_parser("resolve", help="show which stream would be sent for a page")
     resolve.add_argument("page", help="the page's address")
+    sniff = sub.add_parser("sniff", help="show everything the hidden browser saw on a page")
+    sniff.add_argument("page", help="the page's address")
     sub.add_parser("tv-pair", help="connect to the TV so it asks to allow Frame Cast")
     sub.add_parser("tv-apps", help="list the app IDs the TV reports")
     return parser
@@ -106,6 +109,33 @@ def _resolve(settings: Settings, page: str) -> int:
     return 0
 
 
+def _sniff(settings: Settings, page: str) -> int:
+    from .sniffer import PageSniffer, pick
+
+    url = extract_url(page)
+    if not url:
+        print("That doesn't look like a web address.", file=sys.stderr)
+        return 2
+    sniffer = PageSniffer.from_setting(settings.browser)
+    if sniffer is None:
+        print("No hidden browser available: install Chromium (sudo apt install chromium).", file=sys.stderr)
+        return 1
+    result = sniffer.sniff(url)
+    chosen = pick(result)
+    print(f"Title: {result.title or '-'}")
+    print(f"Would play: {chosen.url if chosen else 'nothing found'}")
+    for label, items in (
+        ("Streams the player asked for", [f"{m.kind}  {m.url}" for m in result.media]),
+        ("Stream addresses in the page's data", result.mentioned),
+        ("Embedded players", result.embeds),
+        ("Everything the page loaded (images, fonts and styles left out)", result.log),
+    ):
+        print(f"\n{label}:")
+        for item in items or ["(none)"]:
+            print(f"  {item}")
+    return 0
+
+
 def _tv(settings: Settings, command: str) -> int:
     from .tvlaunch import TvLauncher
 
@@ -156,6 +186,8 @@ def main(argv: list[str] | None = None) -> int:
     settings = _settings_from(args)
     if args.command == "resolve":
         return _resolve(settings, args.page)
+    if args.command == "sniff":
+        return _sniff(settings, args.page)
     if args.command in ("tv-pair", "tv-apps"):
         return _tv(settings, args.command)
     return _serve(settings)

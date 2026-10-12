@@ -102,7 +102,7 @@ The phone must be on the home WiFi. The server's web page has these same steps, 
    - Method: **POST**
    - URL: `http://<server>:8090/api/send?reply=text`
    - Body: custom text `{link}`
-3. Show the response as a toast, and set the timeout to 60 seconds.
+3. Show the response as a toast, and set the timeout to 90 seconds.
 4. Then, from any app: **Share → HTTP Shortcuts → Send to Frame**.
 
 If the TV app is closed when you share, the link waits for 10 minutes and plays when you open the app.
@@ -119,7 +119,7 @@ This hasn't been tried on the Frame yet. If the app doesn't open, run `frame-cas
 ## When something doesn't play
 
 - **Rule out the TV first.** On the server's web page, open the sharing section and press **Send a test video**. If that plays, the TV app is fine and the problem is the page.
-- **"Couldn't find a video on that page"**: run `frame-cast resolve <link>` on the Pi to see what it finds. Add `-v` for every step, including what the hidden browser saw. Sites change often, so update yt-dlp with `sudo ./update-yt-dlp.sh`. If the hidden browser isn't working at all, check Chromium is installed with `chromium --version`.
+- **"Couldn't find a video on that page"**: run `frame-cast resolve <link>` on the Pi to see what it finds, and `frame-cast sniff <link>` to list everything the hidden browser saw on the page. Sites change often, so update yt-dlp with `sudo ./update-yt-dlp.sh`. If the hidden browser isn't working at all, check Chromium is installed with `chromium --version`.
 - **The TV shows "Couldn't connect to the video"**: the site may check where requests come from. Set `FRAMECAST_RELAY=always` in `/etc/frame-cast.env` and restart, so the stream goes through the Pi.
 - **The TV says it can't reach the home server**: check the address on the TV's start screen (press OK to change it), and that both are on the same network.
 - The phone page shows what the TV is doing, including the TV player's error messages.

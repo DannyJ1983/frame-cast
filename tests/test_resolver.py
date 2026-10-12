@@ -167,6 +167,10 @@ def test_cookies_for_other_host_ignored():
         ("ERROR: Private video. Sign in if you've been granted access", "signed in"),
         ("ERROR: The uploader has not made this video available in your country", "isn't available"),
         ("ERROR: Something odd\nmore detail", "Couldn't get the video: Something odd"),
+        (
+            "ERROR: [generic] CBS-Sports-Golazo?code=us: Unable to download webpage: [SSL: WRONG_VERSION_NUMBER] wrong version number",
+            "Couldn't connect to that site",
+        ),
     ],
 )
 def test_explain_error(raw, expected):

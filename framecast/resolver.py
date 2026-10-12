@@ -33,6 +33,12 @@ _RELAY_HEADERS = {"referer", "origin", "cookie", "authorization"}
 
 COPY_PROTECTED = "That video is copy-protected, so it can't be played on the TV."
 NO_VIDEO = "Couldn't find a video on that page."
+SIGNED_IN = "That video needs you to be signed in, which Frame Cast can't do."
+NOT_HERE = "That video isn't available from here."
+NOT_FOUND = "That page couldn't be found."
+CANT_CONNECT = "Couldn't connect to that site from the home server. It may be down, or blocked on your broadband."
+# Answers a hidden browser on the same connection can't change, so it isn't tried after them.
+FINAL_ERRORS = {COPY_PROTECTED, SIGNED_IN, NOT_HERE}
 
 
 class ResolveError(Exception):
@@ -190,12 +196,14 @@ def explain_error(message: str) -> str:
         return COPY_PROTECTED
     if "unsupported url" in lower or "no video formats" in lower or "no video could be found" in lower:
         return NO_VIDEO
-    if "sign in" in lower or "login" in lower or "log in" in lower or "private" in lower:
-        return "That video needs you to be signed in, which Frame Cast can't do."
+    if "sign in" in lower or "login" in lower or "log in" in lower or "private video" in lower:
+        return SIGNED_IN
     if ("geo" in lower and "restrict" in lower) or "in your country" in lower:
-        return "That video isn't available from here."
+        return NOT_HERE
     if "http error 404" in lower:
-        return "That page couldn't be found."
+        return NOT_FOUND
+    if any(s in lower for s in ("ssl", "unable to download webpage", "connection", "timed out", "name or service not known", "getaddrinfo")):
+        return CANT_CONNECT
     first_line = text.splitlines()[0] if text else "unknown error"
     return f"Couldn't get the video: {first_line[:200]}"
 
@@ -240,7 +248,8 @@ class Resolver:
         try:
             return self._with_ytdlp(page_url, page_url)
         except ResolveError as err:
-            if self._sniffer is None or str(err) != NO_VIDEO:
+            # Sites often turn yt-dlp away (or confuse it) but still play in a real browser.
+            if self._sniffer is None or str(err) in FINAL_ERRORS:
                 raise
             return self._with_browser(page_url, err)
 
@@ -258,7 +267,7 @@ class Resolver:
         from .sniffer import pick, to_stream
 
         assert self._sniffer is not None
-        log.info("yt-dlp found nothing; opening %s in a hidden browser", page_url)
+        log.info("yt-dlp couldn't help (%s); opening %s in a hidden browser", original, page_url)
         try:
             result = self._sniffer.sniff(page_url)
         except Exception:  # a browser that won't start shouldn't hide yt-dlp's answer
@@ -274,4 +283,11 @@ class Resolver:
                 return self._with_ytdlp(embed, page_url)
             except ResolveError as err:
                 error = err
+        if error is original and _page_loaded(result.log):
+            raise ResolveError(NO_VIDEO)  # the page opened fine, so yt-dlp's complaint was beside the point
         raise error
+
+
+def _page_loaded(browser_log: list[str]) -> bool:
+    """True if the hidden browser's log shows a page that loaded (status 2xx or 3xx)."""
+    return any(" document " in line and line[:1] in ("2", "3") for line in browser_log)

@@ -199,6 +199,33 @@ def test_resolver_tries_embeds_with_ytdlp():
     assert stream.page_url == "https://site/page"
 
 
+def test_resolver_tries_browser_after_yt_dlp_errors():
+    def ssl_error(url):
+        raise ResolveError("Couldn't connect to that site from the home server. It may be down, or blocked on your broadband.")
+
+    sniffer = FakeSniffer(SniffResult(media=[Captured("https://cdn/live.m3u8", "hls")]))
+    assert Resolver(ssl_error, sniffer).resolve("https://site/page").url == "https://cdn/live.m3u8"
+
+    # The browser opened the page but found nothing: say so, rather than repeat yt-dlp's complaint.
+    loaded = FakeSniffer(SniffResult(log=["200 document  text/html  https://site/page"]))
+    with pytest.raises(ResolveError, match="Couldn't find a video"):
+        Resolver(ssl_error, loaded).resolve("https://site/page")
+    # The browser couldn't open it either: keep the connection message.
+    failed = FakeSniffer(SniffResult(log=["FAILED document  net::ERR_SSL_PROTOCOL_ERROR https://site/page"]))
+    with pytest.raises(ResolveError, match="Couldn't connect"):
+        Resolver(ssl_error, failed).resolve("https://site/page")
+
+
+def test_resolver_skips_browser_when_it_cannot_help():
+    def signed_in(url):
+        raise ResolveError("That video needs you to be signed in, which Frame Cast can't do.")
+
+    sniffer = FakeSniffer(SniffResult(media=[Captured("https://cdn/x.mp4", "file")]))
+    with pytest.raises(ResolveError, match="signed in"):
+        Resolver(signed_in, sniffer).resolve("https://site/page")
+    assert sniffer.calls == []
+
+
 def test_resolver_keeps_other_errors_and_browser_failures():
     def drm(url):
         raise ResolveError("That video is copy-protected, so it can't be played on the TV.")

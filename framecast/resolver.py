@@ -12,7 +12,10 @@ import logging
 import re
 import urllib.request
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
+
+if TYPE_CHECKING:
+    from .sniffer import PageSniffer
 
 log = logging.getLogger(__name__)
 
@@ -221,19 +224,54 @@ def ytdlp_extract(url: str) -> tuple[dict[str, Any], http.cookiejar.CookieJar | 
 
 
 class Resolver:
-    """Finds the stream on a page. Blocking: call it from a worker thread."""
+    """Finds the stream on a page. Blocking: call it from a worker thread.
 
-    def __init__(self, extractor: Extractor = ytdlp_extract) -> None:
+    yt-dlp goes first. If it finds nothing and a ``sniffer`` is given, the page
+    is opened in a hidden browser to catch the stream its player asks for.
+    """
+
+    def __init__(self, extractor: Extractor = ytdlp_extract, sniffer: "PageSniffer | None" = None) -> None:
         self._extract = extractor
+        self._sniffer = sniffer
 
     def resolve(self, page_url: str) -> Stream:
         """Return the best stream on ``page_url``, or raise ResolveError."""
         log.info("Looking for a video on %s", page_url)
         try:
-            info, cookies = self._extract(page_url)
+            return self._with_ytdlp(page_url, page_url)
+        except ResolveError as err:
+            if self._sniffer is None or str(err) != NO_VIDEO:
+                raise
+            return self._with_browser(page_url, err)
+
+    def _with_ytdlp(self, url: str, page_url: str) -> Stream:
+        try:
+            info, cookies = self._extract(url)
         except ResolveError:
             raise
         except Exception as err:  # yt-dlp can raise almost anything on odd pages
-            log.exception("yt-dlp failed on %s", page_url)
+            log.exception("yt-dlp failed on %s", url)
             raise ResolveError(explain_error(str(err))) from err
         return choose_stream(info, page_url, cookies)
+
+    def _with_browser(self, page_url: str, original: ResolveError) -> Stream:
+        from .sniffer import pick, to_stream
+
+        assert self._sniffer is not None
+        log.info("yt-dlp found nothing; opening %s in a hidden browser", page_url)
+        try:
+            result = self._sniffer.sniff(page_url)
+        except Exception:  # a browser that won't start shouldn't hide yt-dlp's answer
+            log.exception("The hidden browser failed on %s", page_url)
+            raise original
+        captured = pick(result)
+        if captured is not None:
+            return to_stream(captured, result, page_url)
+        error = original
+        for embed in result.embeds:
+            log.info("Page embeds %s; trying yt-dlp on it", embed)
+            try:
+                return self._with_ytdlp(embed, page_url)
+            except ResolveError as err:
+                error = err
+        raise error

@@ -20,6 +20,7 @@ from .hub import CONTROL_ACTIONS, Event, Hub, PlayCommand, sse
 from .links import extract_url
 from .relay import Relay
 from .resolver import Resolver, ResolveError, Stream
+from .sniffer import PageSniffer
 from .tvlaunch import TvLauncher
 
 log = logging.getLogger(__name__)
@@ -116,7 +117,7 @@ def create_app(
     hub: Hub | None = None,
 ) -> FastAPI:
     """Build the FastAPI app. Collaborators can be swapped for tests."""
-    resolver = resolver or Resolver()
+    resolver = resolver or Resolver(sniffer=PageSniffer.from_setting(settings.browser))
     relay = relay or Relay()
     hub = hub or Hub()
     if launcher is None and settings.tv_host:

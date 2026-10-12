@@ -3,7 +3,8 @@
 # (or any Debian-based Linux with systemd). Run from the repo: sudo ./install.sh
 #
 # What it does, and nothing else:
-#   - installs python3-venv with apt if it's missing
+#   - installs python3-venv and Chromium with apt if they're missing (Chromium lets it read
+#     pages whose video player is built by JavaScript)
 #   - creates a "framecast" system user to run the service
 #   - copies the app to /opt/frame-cast and makes a virtual environment there
 #   - writes /etc/frame-cast.env (only if it doesn't exist) for your settings
@@ -30,6 +31,12 @@ if ! python3 -m venv --help >/dev/null 2>&1 || ! python3 -c 'import ensurepip' >
   say "Installing python3-venv with apt"
   apt-get update
   apt-get install -y python3-venv
+fi
+
+if ! command -v chromium >/dev/null 2>&1 && ! command -v chromium-browser >/dev/null 2>&1; then
+  say "Installing Chromium with apt, for pages built by JavaScript (a few minutes)"
+  apt-get update
+  apt-get install -y chromium || echo "Couldn't install Chromium. Frame Cast still works, but can't read pages built by JavaScript."
 fi
 
 if ! id "$SERVICE_USER" >/dev/null 2>&1; then
@@ -64,6 +71,8 @@ FRAMECAST_STATE_DIR=$STATE_DIR
 #FRAMECAST_TV_HOST=192.168.1.50
 # When to pass streams through this computer: auto, always or never.
 #FRAMECAST_RELAY=auto
+# The Chromium used for pages built by JavaScript: auto, off, or a path.
+#FRAMECAST_BROWSER=auto
 EOF
 else
   say "Keeping your settings in $ENV_FILE"
@@ -74,7 +83,7 @@ cat > /usr/local/bin/frame-cast <<WRAPPER
 #!/bin/sh
 # Run Frame Cast commands with the service's settings, e.g. "frame-cast resolve <page>".
 cd $APP_DIR || exit 1
-exec sudo -u $SERVICE_USER $APP_DIR/.venv/bin/python -m framecast --config $ENV_FILE "\$@"
+exec sudo -H -u $SERVICE_USER $APP_DIR/.venv/bin/python -m framecast --config $ENV_FILE "\$@"
 WRAPPER
 chmod 755 /usr/local/bin/frame-cast
 

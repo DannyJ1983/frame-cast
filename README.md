@@ -6,13 +6,13 @@ Share a webpage from your phone and its video plays on the TV. Built for a 2019 
 phone ──share link──▶ home server (Pi) ──finds the stream──▶ TV app ──plays it on the TV's own decoder
 ```
 
-- **Home server** (`framecast/`): a small Python service on a Raspberry Pi or any always-on computer. It uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) to find the video stream inside the page and tells the TV app to play it. If a site only serves video to requests with a Referer or cookies, the server relays the stream and adds them.
+- **Home server** (`framecast/`): a small Python service on a Raspberry Pi or any always-on computer. It uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) to find the video stream inside the page and tells the TV app to play it. For pages yt-dlp doesn't know, where the player is built by JavaScript as on many live TV sites, it opens the page in a hidden Chromium and catches the stream the player asks for, skipping ads. If a site only serves video to requests with a Referer or cookies, the server relays the stream and adds them.
 - **TV app** (`tv/`): a Tizen web app that plays streams with Samsung's AVPlay player. That's the TV's hardware decoder, so HLS (including live streams), DASH and MP4 all work.
 - **Phone**: share from any app with an iPhone Shortcut or the Android HTTP Shortcuts app, or paste links into the server's web page.
 
 ## What works and what doesn't
 
-- Most pages with a plain video or a live stream: news sites, sports streams, the many sites yt-dlp supports, and direct `.m3u8`/`.mpd`/`.mp4` links.
+- Most pages with a plain video or a live stream: news sites, sports streams, free live TV sites, the many sites yt-dlp supports, and direct `.m3u8`/`.mpd`/`.mp4` links.
 - **Copy-protected services won't work**: Netflix, Disney+, Prime Video, NOW and the like. Use their own TV apps.
 - Pages that need you signed in won't work.
 - YouTube: use the TV's YouTube app and the cast button in the YouTube phone app.
@@ -111,7 +111,7 @@ This hasn't been tried on the Frame yet. If the app doesn't open, run `frame-cas
 ## When something doesn't play
 
 - **Rule out the TV first.** On the server's web page, open the sharing section and press **Send a test video**. If that plays, the TV app is fine and the problem is the page.
-- **"Couldn't find a video on that page"**: run `frame-cast resolve <link>` on the Pi to see what yt-dlp finds. Sites change often, so update yt-dlp with `sudo ./update-yt-dlp.sh`.
+- **"Couldn't find a video on that page"**: run `frame-cast resolve <link>` on the Pi to see what it finds. Add `-v` for every step, including what the hidden browser saw. Sites change often, so update yt-dlp with `sudo ./update-yt-dlp.sh`. If the hidden browser isn't working at all, check Chromium is installed with `chromium --version`.
 - **The TV shows "Couldn't connect to the video"**: the site may check where requests come from. Set `FRAMECAST_RELAY=always` in `/etc/frame-cast.env` and restart, so the stream goes through the Pi.
 - **The TV says it can't reach the home server**: check the address on the TV's start screen (press OK to change it), and that both are on the same network.
 - The phone page shows what the TV is doing, including the TV player's error messages.

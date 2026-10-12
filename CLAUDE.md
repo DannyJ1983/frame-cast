@@ -5,7 +5,8 @@ Share a webpage from a phone; a home server (Pi) finds the video stream with yt-
 ## Layout
 
 - `framecast/`: the home server (Python 3.11, FastAPI, uvicorn, Server-Sent Events)
-  - `resolver.py`: page to stream (pure `choose_stream` plus a yt-dlp wrapper)
+  - `resolver.py`: page to stream (pure `choose_stream` plus a yt-dlp wrapper), falling back to `sniffer.py`
+  - `sniffer.py`: opens pages in headless Chromium (Playwright, system `chromium` on the Pi) and catches the stream the player requests
   - `relay.py`: signed relay for streams that need headers or cookies
   - `hub.py`: in-memory state and event queues
   - `server.py`: routes

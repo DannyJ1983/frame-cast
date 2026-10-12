@@ -4,3 +4,5 @@ uvicorn==0.54.0
 httpx==0.28.1
 yt-dlp==2026.8.19
 samsungtvws==3.0.6
+# Reads pages whose player is built by JavaScript, using the system Chromium.
+playwright==1.63.0

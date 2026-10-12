@@ -44,6 +44,7 @@ def _parser(defaults: Settings) -> argparse.ArgumentParser:
     parser.add_argument("--relay", choices=RELAY_MODES, default=defaults.relay, help="when to relay streams through the hub (default %(default)s)")
     parser.add_argument("--tv-host", default=defaults.tv_host, help="the TV's IP address, to open the app when a link is shared")
     parser.add_argument("--tv-app-id", default=defaults.tv_app_id, help="the TV app's ID (default %(default)s)")
+    parser.add_argument("--browser", default=defaults.browser, help='Chromium for pages built by JavaScript: "auto", "off" or a path (default %(default)s)')
     parser.add_argument("--state-dir", default=str(defaults.state_dir), help="where to keep the TV token (default %(default)s)")
     parser.add_argument("--verbose", "-v", action="store_true", help="log more detail")
     sub = parser.add_subparsers(dest="command")
@@ -62,6 +63,7 @@ def _settings_from(args: argparse.Namespace) -> Settings:
         tv_host=args.tv_host,
         tv_app_id=args.tv_app_id,
         state_dir=Path(args.state_dir),
+        browser=args.browser,
     )
 
 
@@ -77,13 +79,14 @@ def _serve(settings: Settings) -> int:
 
 def _resolve(settings: Settings, page: str) -> int:
     from .resolver import Resolver, ResolveError
+    from .sniffer import PageSniffer
 
     url = extract_url(page)
     if not url:
         print("That doesn't look like a web address.", file=sys.stderr)
         return 2
     try:
-        stream = Resolver().resolve(url)
+        stream = Resolver(sniffer=PageSniffer.from_setting(settings.browser)).resolve(url)
     except ResolveError as err:
         print(err, file=sys.stderr)
         return 1
@@ -146,7 +149,9 @@ def main(argv: list[str] | None = None) -> int:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
     if not args.verbose:
-        logging.getLogger("yt_dlp").setLevel(logging.WARNING)
+        # yt-dlp's own "Unsupported URL" errors are noise when the browser fallback then succeeds;
+        # the resolver logs its own account of what happened.
+        logging.getLogger("yt_dlp").setLevel(logging.CRITICAL)
         logging.getLogger("httpx").setLevel(logging.WARNING)
     settings = _settings_from(args)
     if args.command == "resolve":

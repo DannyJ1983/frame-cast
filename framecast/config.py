@@ -25,6 +25,8 @@ class Settings:
     ``tv_host`` is the TV's address, used to open the app on the TV when a
     link is shared; leave it unset to open the app by hand.
     ``tv_dir`` is the TV app's folder, served at /tv/ for trying it in a browser.
+    ``browser`` is the Chromium used to read pages built by JavaScript: "auto"
+    finds an installed one, "off" turns the feature off, or give a path.
     """
 
     host: str = "0.0.0.0"
@@ -34,6 +36,7 @@ class Settings:
     tv_app_id: str = DEFAULT_APP_ID
     state_dir: Path = Path("state")
     resolve_timeout: float = 60.0
+    browser: str = "auto"
     tv_dir: Path | None = field(default_factory=_default_tv_dir)
 
     def __post_init__(self) -> None:
@@ -59,6 +62,8 @@ class Settings:
             settings.tv_host = environ["FRAMECAST_TV_HOST"]
         if environ.get("FRAMECAST_TV_APP_ID"):
             settings.tv_app_id = environ["FRAMECAST_TV_APP_ID"]
+        if environ.get("FRAMECAST_BROWSER"):
+            settings.browser = environ["FRAMECAST_BROWSER"]
         if "FRAMECAST_STATE_DIR" in environ:
             settings.state_dir = Path(environ["FRAMECAST_STATE_DIR"])
         settings.__post_init__()

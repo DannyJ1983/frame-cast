@@ -7,12 +7,13 @@
 #   tv/build.sh --hub http://192.168.1.20:8090 --install 192.168.1.50
 #       also connects to the TV (in Developer Mode) and installs it
 #
-# Needs Tizen Studio with the Samsung TV extensions, and a Samsung certificate profile made
-# in its Certificate Manager (see the README). Set CERT_PROFILE to pick a profile by name;
-# otherwise Tizen Studio's active profile is used.
+# Needs the Tizen SDK's command-line tools (the "Tizen SDK with CLI" installer, or the SDK the
+# VS Code extension installs; Tizen Studio itself is retired) and a Samsung certificate profile
+# made in the VS Code extension's Certificate Manager (see the README). Set CERT_PROFILE to pick
+# a profile by name; otherwise the active profile is used. If the SDK isn't in a usual place,
+# set TIZEN_SDK to its folder.
 #
-# Not yet run against a real Tizen Studio install: if a step fails, the README has the
-# same steps done by hand in the Tizen Studio app.
+# Not yet run against a real SDK install or TV: if a step fails, send the error.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -41,13 +42,15 @@ fi
 find_tool() {
   local name="$1"
   if command -v "$name" >/dev/null 2>&1; then command -v "$name"; return; fi
-  for dir in "$HOME/tizen-studio/tools/ide/bin" "$HOME/tizen-studio/tools" \
+  for dir in "${TIZEN_SDK:-/nonexistent}/tools/ide/bin" "${TIZEN_SDK:-/nonexistent}/tools" \
+             "$HOME/tizen-studio/tools/ide/bin" "$HOME/tizen-studio/tools" \
+             "$HOME/tizen-sdk/tools/ide/bin" "$HOME/tizen-sdk/tools" \
              "/c/tizen-studio/tools/ide/bin" "/c/tizen-studio/tools"; do
     for candidate in "$dir/$name" "$dir/$name.bat" "$dir/$name.exe"; do
       if [ -x "$candidate" ]; then echo "$candidate"; return; fi
     done
   done
-  echo "Couldn't find '$name'. Install Tizen Studio, or add its tools folders to PATH." >&2
+  echo "Couldn't find '$name'. Install the Tizen SDK, or set TIZEN_SDK to the folder it went into." >&2
   exit 1
 }
 
@@ -91,6 +94,9 @@ if [ -n "$TV_IP" ]; then
     echo "The TV didn't show up in 'sdb devices'. Is Developer Mode on, with this computer's IP?" >&2
     exit 1
   fi
+  echo "Allowing this certificate to install on $TV_NAME"
+  # A Samsung certificate needs the TV's permission once; harmless to repeat.
+  "$TIZEN" install-permit -t "$TV_NAME" || echo "(install-permit didn't work; trying the install anyway)"
   echo "Installing on $TV_NAME"
   "$TIZEN" install -n FrameCast.wgt -t "$TV_NAME" -- "$BUILD"
   echo "Done. Frame Cast should now be in the TV's Apps."

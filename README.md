@@ -56,23 +56,31 @@ Then open `http://localhost:8090` for the phone page and `http://localhost:8090/
 
 ## 2. Put the app on the TV
 
-You do this once, from a Windows, Mac or Linux computer on the same network. The TV doesn't need rooting.
+You do this once, from a Windows, Mac or Linux computer. The TV doesn't need rooting.
+
+Samsung has retired Tizen Studio. These steps use its replacements: the Tizen SDK command-line tools and the VS Code extension for Tizen. The steps haven't been run against the new tools yet, and menu names may differ slightly.
+
+**The computer and the TV must be on the same network.** If your home has mesh WiFi plugged into the router, the two can end up on different networks. Check that both IP addresses start the same way, for example 192.168.68.
 
 1. **Turn on Developer Mode on the TV.** Open **Apps**, then type **1 2 3 4 5** with the remote's number buttons or the on-screen number pad. Switch **Developer mode** on and enter your computer's IP address. Then restart the TV: hold the power button until it switches off and on again.
-2. **Install Tizen Studio** from the Tizen developer site. In its **Package Manager**, under **Extension SDK**, install **Samsung Certificate Extension** and the **TV Extensions** for Tizen 5.0 (2019 TVs).
-3. **Connect to the TV.** Open **Tools → Device Manager → Remote Device Manager**, add the TV's IP address with port **26101**, and switch the connection on.
-4. **Make a Samsung certificate.** Open **Tools → Certificate Manager**, press **+**, then choose **Samsung**, then **TV**. Name the profile (for example `frame`), create an author certificate, and sign in with a Samsung account. For the distributor certificate, choose privilege level **Public** and make sure the TV's DUID is listed. Certificate Manager fills it in from the connected TV.
-5. **Build and install.** In a terminal (Git Bash on Windows), from this repo:
+2. **Install the Tizen SDK.** Download **Tizen SDK 10 with CLI** from the [Tizen tools page](https://samsungtizenos.com/tools-download/) and run it. Note the folder it installs into.
+3. **Install VS Code and the Tizen extension.** In [VS Code](https://code.visualstudio.com/)'s Extensions view, search for **Tizen** and install the extension for Tizen. Point it at the SDK folder if it asks. Then open **Tizen: Package Manager** from the Command Palette (Cmd/Ctrl+Shift+P) and install the **Samsung Certificate Extension**, plus the **TV Extensions** if they're listed.
+4. **Connect to the TV.** Run `sdb connect <TV's IP>` in a terminal (`sdb` is in the SDK's `tools` folder), or use the extension's Device Manager.
+5. **Make a Samsung certificate.** Open **Tizen: Certificate Manager** from the Command Palette and choose **Create Samsung Certificate**, for a TV.
+   - Name the profile (for example `frame`).
+   - Create an author certificate, then sign in with a Samsung account when asked.
+   - For the distributor certificate, make sure the TV's DUID is listed. It fills in from the connected TV.
+6. **Build and install.** In a terminal (Git Bash on Windows), from this repo:
 
    ```sh
-   CERT_PROFILE=frame tv/build.sh --hub http://192.168.1.20:8090 --install 192.168.1.50
+   CERT_PROFILE=frame bash tv/build.sh --hub http://192.168.1.20:8090 --install 192.168.1.50
    ```
 
-   Use your server's address for `--hub` and the TV's IP for `--install`. **Frame Cast** then appears in the TV's Apps. If the script fails, do the same steps in the Tizen Studio app instead:
-   1. **File → Import → Tizen → Tizen Project**, then choose the `tv` folder.
-   2. Right-click the project, then choose **Run As → Tizen Web Application**.
+   - Use your server's address for `--hub` and the TV's IP for `--install`.
+   - If the script can't find the SDK, put `TIZEN_SDK=<the SDK folder>` in front of the command.
+   - The script also gives your certificate permission to install on the TV (`tizen install-permit`), which Samsung certificates need once.
 
-   Built that way, the app asks for the server address the first time it opens.
+   **Frame Cast** then appears in the TV's Apps.
 
 Open Frame Cast on the TV. It should say **Ready. Connected to http://…**. To change the server address later, press OK on that screen.
 
@@ -137,5 +145,5 @@ Checked here: everything except the parts that need the TV. That covers stream f
 Needs the real TV:
 - AVPlay playback itself: formats, 4K mode, the user agent setting, and suspend/resume
 - the remote's media keys
-- the Tizen Studio build and install script
+- the build and install script against the new Tizen SDK tools
 - opening the app automatically over Samsung's remote-control interface

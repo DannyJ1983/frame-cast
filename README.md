@@ -162,9 +162,11 @@ This runs about 90 tests:
 
 Checked here: everything except the parts that need the TV. That covers stream finding (against yt-dlp-shaped data), the relay, the server, the phone page, and the TV app's logic and screens in Chromium with the stand-in player. The Pi installer was also trial-run in a container, with systemd stubbed out.
 
-Checked on the real TV: building, signing and installing with `tv/build.sh` and a plain Tizen certificate, from a Mac.
+Checked on the real TV (2019 Frame, QE43LS03R):
+- building, signing and installing with `tv/build.sh` and a plain Tizen certificate, from a Mac
+- playback through AVPlay: a live HLS stream (a Tubi channel found on famelack by the hidden browser) and a Twitter clip at full quality
 
-Needs the real TV:
-- AVPlay playback itself: formats, 4K mode, the user agent setting, and suspend/resume
-- the remote's media keys
+Not yet confirmed on the TV:
+- every remote-control key, and suspend/resume when switching apps
+- 4K streams
 - opening the app automatically over Samsung's remote-control interface

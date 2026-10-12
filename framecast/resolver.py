@@ -163,18 +163,24 @@ def choose_stream(
         return stream
 
     hls = [f for f in usable if f.get("protocol") in HLS_PROTOCOLS]
-    if hls:
-        best = max(hls, key=lambda f: (bool(f.get("manifest_url")), _height(f), float(f.get("tbr") or 0)))
-        return make(best, best.get("manifest_url") or best["url"], "hls")
-
     files = [
         f
         for f in usable
         if (f.get("protocol") or "https") in FILE_PROTOCOLS and _has_audio_and_video(f)
     ]
-    if files:
-        best = max(files, key=_file_rank)
-        return make(best, best["url"], "file")
+    best_file = max(files, key=_file_rank) if files else None
+
+    if hls:
+        best = max(hls, key=lambda f: (bool(f.get("manifest_url")), _height(f), float(f.get("tbr") or 0)))
+        best_hls_height = max(_height(f) for f in hls)
+        if best_file is not None and not is_live and _height(best_file) and _height(best_file) >= best_hls_height:
+            # A clip offered as a single file at full quality plays sharp from the first second;
+            # an HLS stream can start at its lowest level and take a while to climb.
+            return make(best_file, best_file["url"], "file")
+        return make(best, best.get("manifest_url") or best["url"], "hls")
+
+    if best_file is not None:
+        return make(best_file, best_file["url"], "file")
 
     dash = [f for f in usable if f.get("protocol") in DASH_PROTOCOLS and f.get("manifest_url")]
     if dash:

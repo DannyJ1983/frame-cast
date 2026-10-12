@@ -121,7 +121,11 @@
 
   function playCommand(next) {
     command = next;
-    player.play(core.streamUrl(next, hubUrl), { userAgent: next.user_agent, isLive: next.is_live });
+    player.play(core.streamUrl(next, hubUrl), {
+      userAgent: next.user_agent,
+      isLive: next.is_live,
+      adaptive: next.kind === "hls" || next.kind === "dash",
+    });
   }
 
   function handleControl(control) {

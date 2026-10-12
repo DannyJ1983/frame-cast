@@ -38,9 +38,35 @@ def test_send_with_tv_closed_keeps_link_pending(client):
     assert "Open Frame Cast on the TV" in body["message"]
     hub = client.app.state.hub
     assert hub.pending.title == "Video at 1"
-    assert hub.pending.url == "https://cdn.example/v/master.m3u8"
+    # Only the master playlist goes via the hub, reordered best-first.
+    assert hub.pending.url.startswith("/p/") and hub.pending.url.endswith("/master.m3u8")
     assert hub.pending.user_agent == "TestUA"
     assert hub.pending.relayed is False
+
+
+def test_best_quality_off_sends_stream_direct(settings, fake_resolver):
+    settings.best_quality = False
+    with TestClient(create_app(settings, resolver=fake_resolver)) as c:
+        c.post("/api/send", json={"url": "https://site.example/video/1"})
+        assert c.app.state.hub.pending.url == "https://cdn.example/v/master.m3u8"
+
+
+def test_best_quality_master_reordered_but_variants_direct(settings, fake_resolver):
+    master = (
+        "#EXTM3U\n"
+        "#EXT-X-STREAM-INF:BANDWIDTH=300000,RESOLUTION=480x270\nlow.m3u8\n"
+        "#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720\nhigh.m3u8\n"
+    )
+
+    def upstream(request):
+        return httpx.Response(200, headers={"content-type": "application/vnd.apple.mpegurl"}, text=master)
+
+    relay = Relay(transport=httpx.MockTransport(upstream))
+    with TestClient(create_app(settings, resolver=fake_resolver, relay=relay)) as c:
+        c.post("/api/send", json={"url": "https://site.example/video/1"})
+        lines = c.get(c.app.state.hub.pending.url).text.splitlines()
+        assert lines[2] == "https://cdn.example/v/high.m3u8"
+        assert lines[4] == "https://cdn.example/v/low.m3u8"
 
 
 @pytest.mark.parametrize(

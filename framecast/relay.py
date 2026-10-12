@@ -51,6 +51,9 @@ class RelaySession:
     headers: dict[str, str]
     cookies: http.cookiejar.CookieJar | None = None
     created: float = field(default_factory=time.time)
+    # True when only the master playlist comes through the hub (to put the best quality first);
+    # the TV then fetches everything else straight from the site.
+    direct_segments: bool = False
 
     def upstream_headers(self, url: str, range_header: str | None) -> dict[str, str]:
         """Build the request headers for fetching ``url`` upstream."""
@@ -113,6 +116,67 @@ def rewrite_playlist(text: str, base_url: str, to_relay: Callable[[str], str]) -
     return "\n".join(lines) + "\n"
 
 
+_STREAM_INF = "#EXT-X-STREAM-INF"
+MAX_VARIANT_HEIGHT = 2160  # The Frame decodes up to 4K.
+UNSUPPORTED_CODECS = ("av01",)  # 2019 Samsung TVs have no AV1 decoder.
+
+
+def _attribute(tag_line: str, name: str) -> str:
+    match = re.search(rf'(?:[:,]){name}=("[^"]*"|[^,]*)', tag_line)
+    return match.group(1).strip('"') if match else ""
+
+
+def _variant_height(tag_line: str) -> int:
+    resolution = _attribute(tag_line, "RESOLUTION")
+    try:
+        return int(resolution.lower().split("x")[1])
+    except (IndexError, ValueError):
+        return 0
+
+
+def _variant_bandwidth(tag_line: str) -> int:
+    try:
+        return int(_attribute(tag_line, "BANDWIDTH"))
+    except ValueError:
+        return 0
+
+
+def prioritise_variants(text: str) -> str:
+    """Put an HLS master playlist's best quality first, dropping levels the TV can't play.
+
+    Players commonly start with the first level listed, and many sites list the
+    lowest first, so short clips never climb to full quality. Levels above 4K or
+    in AV1 are dropped, unless that would leave nothing. Media playlists are
+    returned unchanged.
+    """
+    lines = text.splitlines()
+    if not any(line.startswith(_STREAM_INF) for line in lines):
+        return text
+    others: list[str] = []
+    variants: list[tuple[str, str]] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith(_STREAM_INF):
+            j = i + 1
+            while j < len(lines) and not lines[j].strip():
+                j += 1
+            variants.append((line, lines[j] if j < len(lines) else ""))
+            i = j + 1
+        else:
+            others.append(line)
+            i += 1
+    playable = [
+        v for v in variants
+        if _variant_height(v[0]) <= MAX_VARIANT_HEIGHT
+        and not any(c in _attribute(v[0], "CODECS").lower() for c in UNSUPPORTED_CODECS)
+    ] or variants
+    playable.sort(key=lambda v: (_variant_bandwidth(v[0]), _variant_height(v[0])), reverse=True)
+    while others and not others[-1].strip():
+        others.pop()
+    return "\n".join(others + [part for v in playable for part in v]) + "\n"
+
+
 def _looks_like_playlist_name(url: str) -> bool:
     path = urlsplit(url).path.lower()
     return path.endswith(".m3u8") or path.endswith(".m3u")
@@ -135,10 +199,19 @@ class Relay:
 
     # Addresses -----------------------------------------------------------------
 
-    def open_session(self, headers: dict[str, str], cookies: http.cookiejar.CookieJar | None = None) -> str:
-        """Start a relay session for one stream and return its id."""
+    def open_session(
+        self,
+        headers: dict[str, str],
+        cookies: http.cookiejar.CookieJar | None = None,
+        direct_segments: bool = False,
+    ) -> str:
+        """Start a relay session for one stream and return its id.
+
+        With ``direct_segments`` only the master playlist is passed through (best
+        quality first); everything it points to is fetched by the TV directly.
+        """
         session_id = secrets.token_urlsafe(8)
-        self._sessions[session_id] = RelaySession(dict(headers), cookies)
+        self._sessions[session_id] = RelaySession(dict(headers), cookies, direct_segments=direct_segments)
         while len(self._sessions) > self._max_sessions:
             self._sessions.popitem(last=False)
         return session_id
@@ -217,7 +290,7 @@ class Relay:
             return Response(status_code=upstream.status_code, headers=self._pass_headers(upstream))
 
         if any(t in content_type for t in _PLAYLIST_TYPES) or _looks_like_playlist_name(url):
-            return await self._playlist_response(upstream, session_id)
+            return await self._playlist_response(upstream, session_id, session)
 
         chunks = upstream.aiter_bytes()
         first = b""
@@ -228,7 +301,7 @@ class Relay:
             except StopAsyncIteration:
                 first = b""
             if first.lstrip().startswith(b"#EXTM3U"):
-                return await self._playlist_response(upstream, session_id, first, chunks)
+                return await self._playlist_response(upstream, session_id, session, first, chunks)
 
         return StreamingResponse(
             _prepend(first, chunks),
@@ -248,6 +321,7 @@ class Relay:
         self,
         upstream: httpx.Response,
         session_id: str,
+        session: RelaySession,
         first: bytes = b"",
         chunks: AsyncIterator[bytes] | None = None,
     ) -> Response:
@@ -261,8 +335,12 @@ class Relay:
             await upstream.aclose()
         if upstream.status_code >= 400:
             return Response(bytes(body), status_code=upstream.status_code)
-        text = bytes(body).decode(upstream.encoding or "utf-8", errors="replace")
-        rewritten = rewrite_playlist(text, str(upstream.url), lambda u: self.path_for(session_id, u))
+        text = prioritise_variants(bytes(body).decode(upstream.encoding or "utf-8", errors="replace"))
+        if session.direct_segments:
+            # Addresses are made absolute (they'd otherwise resolve against the hub) but not relayed.
+            rewritten = rewrite_playlist(text, str(upstream.url), lambda u: u)
+        else:
+            rewritten = rewrite_playlist(text, str(upstream.url), lambda u: self.path_for(session_id, u))
         return Response(
             rewritten,
             media_type="application/vnd.apple.mpegurl",

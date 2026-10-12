@@ -3,7 +3,7 @@ import http.cookiejar
 
 import httpx
 
-from framecast.relay import Relay, rewrite_playlist, split_url
+from framecast.relay import Relay, prioritise_variants, rewrite_playlist, split_url
 
 
 def collect(response) -> bytes:
@@ -105,6 +105,56 @@ def test_rewrite_playlist():
     assert "R[https://cdn/live/seg1.ts?x=1]" in out.splitlines()
     assert "R[https://other.cdn/seg2.ts]" in out.splitlines()
     assert out.startswith("#EXTM3U\n")
+
+
+def test_prioritise_variants_puts_best_first_and_drops_unplayable():
+    master = "\n".join(
+        [
+            "#EXTM3U",
+            "#EXT-X-VERSION:6",
+            '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="English",URI="audio.m3u8"',
+            '#EXT-X-STREAM-INF:BANDWIDTH=256000,RESOLUTION=480x270,CODECS="avc1.4d001e,mp4a.40.2",AUDIO="aac"',
+            "low.m3u8",
+            "",
+            '#EXT-X-STREAM-INF:BANDWIDTH=2176000,RESOLUTION=1280x720,CODECS="avc1.640020,mp4a.40.2",AUDIO="aac"',
+            "mid.m3u8",
+            '#EXT-X-STREAM-INF:BANDWIDTH=9000000,RESOLUTION=1920x1080,CODECS="av01.0.08M.08,mp4a.40.2"',
+            "av1.m3u8",
+            "#EXT-X-STREAM-INF:BANDWIDTH=40000000,RESOLUTION=7680x4320",
+            "eightk.m3u8",
+            "#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080",
+            "high.m3u8",
+        ]
+    )
+    out = prioritise_variants(master).splitlines()
+    uris = [line for line in out if line and not line.startswith("#")]
+    assert uris == ["high.m3u8", "mid.m3u8", "low.m3u8"]
+    assert out[:3] == ["#EXTM3U", "#EXT-X-VERSION:6", '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="English",URI="audio.m3u8"']
+    assert out[3].startswith("#EXT-X-STREAM-INF:BANDWIDTH=5000000")
+
+
+def test_prioritise_variants_leaves_media_playlists_and_keeps_something():
+    media = "#EXTM3U\n#EXTINF:6,\nseg1.ts\n"
+    assert prioritise_variants(media) == media
+    only_av1 = '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,CODECS="av01"\na.m3u8\n'
+    assert "a.m3u8" in prioritise_variants(only_av1)
+
+
+def test_direct_segments_session_reorders_without_relaying():
+    def upstream(request):
+        return httpx.Response(
+            200,
+            headers={"content-type": "application/vnd.apple.mpegurl"},
+            text="#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nlow/i.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=9\nhigh/i.m3u8\n",
+        )
+
+    relay = Relay(secret=b"k", transport=httpx.MockTransport(upstream))
+    sid = relay.open_session({"User-Agent": "UA"}, direct_segments=True)
+    body = collect(serve(relay, relay.path_for(sid, "https://cdn/v/master.m3u8"))).decode()
+    assert [l for l in body.splitlines() if not l.startswith("#")] == [
+        "https://cdn/v/high/i.m3u8",
+        "https://cdn/v/low/i.m3u8",
+    ]
 
 
 class Upstream:

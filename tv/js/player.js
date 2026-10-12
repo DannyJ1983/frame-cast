@@ -46,7 +46,7 @@
     }
   };
 
-  /** Open and start a stream. options: { userAgent, isLive } */
+  /** Open and start a stream. options: { userAgent, isLive, adaptive } */
   Player.prototype.play = function (url, options) {
     var self = this;
     var opts = options || {};
@@ -101,6 +101,12 @@
       if (opts.userAgent) {
         this._try("USER_AGENT", function () {
           avplay.setStreamingProperty("USER_AGENT", opts.userAgent);
+        });
+      }
+      if (opts.adaptive) {
+        // Samsung's documented ADAPTIVE_INFO setting, valid in the IDLE state before prepare.
+        this._try("ADAPTIVE_INFO", function () {
+          avplay.setStreamingProperty("ADAPTIVE_INFO", "STARTBITRATE=HIGHEST");
         });
       }
       if (this._isUhdPanel()) {

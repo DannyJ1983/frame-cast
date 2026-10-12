@@ -73,6 +73,8 @@ FRAMECAST_STATE_DIR=$STATE_DIR
 #FRAMECAST_RELAY=auto
 # The Chromium used for pages built by JavaScript: auto, off, or a path.
 #FRAMECAST_BROWSER=auto
+# Start streams at their best quality (the playlist passes through here, reordered): 1 or 0.
+#FRAMECAST_BEST_QUALITY=1
 EOF
 else
   say "Keeping your settings in $ENV_FILE"

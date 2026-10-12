@@ -29,6 +29,12 @@ def test_settings_from_env():
     assert settings.token_file == Path("/var/lib/frame-cast/tv-token.txt")
 
 
+def test_best_quality_setting():
+    assert Settings.from_env({}).best_quality is True
+    assert Settings.from_env({"FRAMECAST_BEST_QUALITY": "0"}).best_quality is False
+    assert Settings.from_env({"FRAMECAST_BEST_QUALITY": "yes"}).best_quality is True
+
+
 def test_bad_relay_mode_rejected():
     with pytest.raises(ValueError):
         Settings.from_env({"FRAMECAST_RELAY": "sometimes"})

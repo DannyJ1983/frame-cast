@@ -42,6 +42,11 @@ def make_command(stream: Stream, settings: Settings, relay: Relay) -> PlayComman
         session_id = relay.open_session(stream.headers, stream.cookies)
         url = relay.path_for(session_id, stream.url)
         user_agent = None
+    elif stream.kind == "hls" and settings.best_quality:
+        # Only the master playlist goes via the hub, reordered best-first; the video stays direct.
+        session_id = relay.open_session(stream.headers, None, direct_segments=True)
+        url = relay.path_for(session_id, stream.url)
+        user_agent = stream.user_agent
     else:
         url = stream.url
         user_agent = stream.user_agent

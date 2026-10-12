@@ -27,6 +27,8 @@ class Settings:
     ``tv_dir`` is the TV app's folder, served at /tv/ for trying it in a browser.
     ``browser`` is the Chromium used to read pages built by JavaScript: "auto"
     finds an installed one, "off" turns the feature off, or give a path.
+    ``best_quality`` passes HLS master playlists through the hub with the best
+    quality listed first, so the TV starts sharp; the video itself stays direct.
     """
 
     host: str = "0.0.0.0"
@@ -37,6 +39,7 @@ class Settings:
     state_dir: Path = Path("state")
     resolve_timeout: float = 90.0
     browser: str = "auto"
+    best_quality: bool = True
     tv_dir: Path | None = field(default_factory=_default_tv_dir)
 
     def __post_init__(self) -> None:
@@ -64,6 +67,8 @@ class Settings:
             settings.tv_app_id = environ["FRAMECAST_TV_APP_ID"]
         if environ.get("FRAMECAST_BROWSER"):
             settings.browser = environ["FRAMECAST_BROWSER"]
+        if "FRAMECAST_BEST_QUALITY" in environ:
+            settings.best_quality = environ["FRAMECAST_BEST_QUALITY"].strip().lower() not in ("0", "no", "off", "false")
         if "FRAMECAST_STATE_DIR" in environ:
             settings.state_dir = Path(environ["FRAMECAST_STATE_DIR"])
         settings.__post_init__()

@@ -39,6 +39,39 @@ def test_prefers_hls_master_manifest():
     assert "Accept" not in stream.headers
 
 
+def test_clip_prefers_full_quality_file_over_hls():
+    info = {
+        "title": "Clip",
+        "formats": [
+            fmt(url="https://cdn/320.m3u8", manifest_url="https://cdn/master.m3u8", protocol="m3u8_native", height=320),
+            fmt(url="https://cdn/720.m3u8", manifest_url="https://cdn/master.m3u8", protocol="m3u8_native", height=720),
+            fmt(url="https://cdn/vid/480x270/a.mp4", protocol="https", ext="mp4", height=270),
+            fmt(url="https://cdn/vid/1280x720/a.mp4", protocol="https", ext="mp4", height=720),
+        ],
+    }
+    stream = choose_stream(info, PAGE)
+    assert stream.kind == "file"
+    assert stream.url == "https://cdn/vid/1280x720/a.mp4"
+
+
+def test_hls_kept_when_it_is_sharper_or_live():
+    formats = [
+        fmt(url="https://cdn/1080.m3u8", manifest_url="https://cdn/master.m3u8", protocol="m3u8_native", height=1080),
+        fmt(url="https://cdn/a.mp4", protocol="https", ext="mp4", height=720),
+    ]
+    assert choose_stream({"formats": formats}, PAGE).kind == "hls"
+    same = [
+        fmt(url="https://cdn/720.m3u8", manifest_url="https://cdn/master.m3u8", protocol="m3u8_native", height=720),
+        fmt(url="https://cdn/a.mp4", protocol="https", ext="mp4", height=720),
+    ]
+    assert choose_stream({"formats": same, "is_live": True}, PAGE).kind == "hls"
+    unknown = [
+        fmt(url="https://cdn/720.m3u8", manifest_url="https://cdn/master.m3u8", protocol="m3u8_native", height=720),
+        fmt(url="https://cdn/a.mp4", protocol="https", ext="mp4"),
+    ]
+    assert choose_stream({"formats": unknown}, PAGE).kind == "hls"
+
+
 def test_hls_without_manifest_url_uses_variant():
     info = {"formats": [fmt(url="https://cdn/only.m3u8", protocol="m3u8")]}
     assert choose_stream(info, PAGE).url == "https://cdn/only.m3u8"

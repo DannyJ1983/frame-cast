@@ -54,8 +54,12 @@ def test_shared_link_plays_on_tv(tv_page):
     assert reply["message"] == "Sent to the TV: Video at 42"
 
     page.wait_for_function("document.body.classList.contains('mode-playing')")
-    assert calls(page, "open")[-1][1] == "https://cdn.example/v/master.m3u8"
-    assert ["setStreamingProperty", "USER_AGENT", "TestUA"] in page.evaluate("window.__avplayCalls")
+    # The master playlist comes via the hub (best quality first); the video stays direct.
+    opened = calls(page, "open")[-1][1]
+    assert opened.startswith(f"{server.url}/p/") and opened.endswith("/master.m3u8")
+    all_calls = page.evaluate("window.__avplayCalls")
+    assert ["setStreamingProperty", "USER_AGENT", "TestUA"] in all_calls
+    assert ["setStreamingProperty", "ADAPTIVE_INFO", "STARTBITRATE=HIGHEST"] in all_calls
     assert calls(page, "play")
     assert page.text_content("#osd-title") == "Video at 42"
 

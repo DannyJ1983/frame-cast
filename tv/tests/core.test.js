@@ -42,8 +42,12 @@ test("describePlayerError handles codes, exceptions and unknowns", () => {
 });
 
 test("keyAction per screen", () => {
-  assert.equal(core.keyAction("idle", "Enter"), "settings");
+  assert.equal(core.keyAction("idle", "Enter"), "activate");
+  assert.equal(core.keyAction("idle", "Right"), "move-right");
+  assert.equal(core.keyAction("idle", "Up"), "move-up");
   assert.equal(core.keyAction("idle", "Return"), "exit");
+  assert.equal(core.keyAction("playing", "ChannelUp"), "next-channel");
+  assert.equal(core.keyAction("loading", "ChannelDown"), "prev-channel");
   assert.equal(core.keyAction("playing", "Enter"), "toggle");
   assert.equal(core.keyAction("playing", "MediaPlayPause"), "toggle");
   assert.equal(core.keyAction("playing", "Left"), "seek-back");
@@ -53,13 +57,45 @@ test("keyAction per screen", () => {
   assert.equal(core.keyAction("error", "Enter"), "dismiss");
   assert.equal(core.keyAction("settings", "Down"), "move-focus");
   assert.equal(core.keyAction("settings", "Return"), "cancel");
-  assert.equal(core.keyAction("idle", "Left"), "");
+  assert.equal(core.keyAction("idle", "MediaPlay"), "");
+});
+
+test("moveFocus moves round a grid without wrapping", () => {
+  // 12 tiles, 5 wide: rows 0-4, 5-9, 10-11
+  assert.equal(core.moveFocus(0, 12, 5, "left"), 0);
+  assert.equal(core.moveFocus(0, 12, 5, "right"), 1);
+  assert.equal(core.moveFocus(11, 12, 5, "right"), 11);
+  assert.equal(core.moveFocus(7, 12, 5, "up"), 2);
+  assert.equal(core.moveFocus(2, 12, 5, "up"), 2);
+  assert.equal(core.moveFocus(2, 12, 5, "down"), 7);
+  assert.equal(core.moveFocus(8, 12, 5, "down"), 11); // short last row
+  assert.equal(core.moveFocus(11, 12, 5, "down"), 11);
+  assert.equal(core.moveFocus(40, 12, 5, "left"), 10); // out of range is pulled back first
+  assert.equal(core.moveFocus(0, 0, 5, "down"), 0);
+});
+
+test("neighbourChannel wraps and starts from the ends", () => {
+  const list = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  assert.equal(core.neighbourChannel(list, "a", 1).id, "b");
+  assert.equal(core.neighbourChannel(list, "c", 1).id, "a");
+  assert.equal(core.neighbourChannel(list, "a", -1).id, "c");
+  assert.equal(core.neighbourChannel(list, null, 1).id, "a");
+  assert.equal(core.neighbourChannel(list, null, -1).id, "c");
+  assert.equal(core.neighbourChannel([], "a", 1), null);
+});
+
+test("initials", () => {
+  assert.equal(core.initials("News 24 live"), "N2");
+  assert.equal(core.initials("  sport "), "S");
+  assert.equal(core.initials(""), "?");
 });
 
 test("keyName uses TV codes then browser fallbacks", () => {
   assert.equal(core.keyName(10009), "Return");
   assert.equal(core.keyName(27), "Return");
   assert.equal(core.keyName(32), "MediaPlayPause");
+  assert.equal(core.keyName(427), "ChannelUp");
+  assert.equal(core.keyName(34), "ChannelDown");
   assert.equal(core.keyName(999, { MediaPlayPause: 999 }), "MediaPlayPause");
   assert.equal(core.keyName(12345), "");
 });

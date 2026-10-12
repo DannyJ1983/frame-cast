@@ -34,6 +34,34 @@
         <button type="button" data-action="seek" data-seconds="30" aria-label="Forward 30 seconds">+30 s</button>
         <button type="button" data-action="stop" class="secondary">Stop</button>
       </div>
+      <button type="button" id="save-current" class="link-button">Save as a channel</button>
+    </section>
+
+    <section id="channels-section">
+      <div class="section-head">
+        <h3>Channels</h3>
+        <button type="button" id="add-channel" class="secondary small">Add</button>
+      </div>
+      <form id="channel-form" class="card" hidden autocomplete="off">
+        <input type="hidden" id="channel-id">
+        <label for="channel-name">Name</label>
+        <input id="channel-name" maxlength="60" required>
+        <label for="channel-url">Link to the channel's page</label>
+        <input id="channel-url" type="url" inputmode="url" placeholder="https://…" required>
+        <label for="channel-logo">Logo (optional)</label>
+        <div class="logo-row">
+          <img id="logo-preview" alt="" hidden>
+          <input id="channel-logo" type="file" accept="image/*">
+        </div>
+        <button type="button" id="remove-logo" class="link-button" hidden>Remove logo</button>
+        <div class="form-buttons">
+          <button type="submit" id="channel-save">Save</button>
+          <button type="button" id="channel-cancel" class="secondary">Cancel</button>
+          <button type="button" id="channel-delete" class="danger" hidden>Delete</button>
+        </div>
+      </form>
+      <p id="channels-empty" class="muted">No channels yet. Add one here, or press “Save as a channel” while something's playing. They'll show up on the TV.</p>
+      <ul id="channels"></ul>
     </section>
 
     <section id="recent-section" hidden>

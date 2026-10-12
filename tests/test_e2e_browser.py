@@ -177,3 +177,93 @@ def server_loop_call(server, fn):
 
 async def _call(fn):
     return fn()
+
+
+# Saved channels ---------------------------------------------------------------
+
+PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+
+def add_channel(server, name, path):
+    response = httpx.post(f"{server.url}/api/channels", json={"name": name, "url": f"https://site.example/video/{path}"}, timeout=5)
+    assert response.status_code == 201
+    return response.json()
+
+
+def tile_names(page):
+    return page.eval_on_selector_all("#grid .tile .tile-name", "els => els.map(e => e.textContent)")
+
+
+def test_channels_show_on_tv_and_play_with_ok(tv_page):
+    page, server = tv_page
+    news = add_channel(server, "News 24", "news")
+    add_channel(server, "Sport", "sport")
+    httpx.put(f"{server.url}/api/channels/{news['id']}/logo", content=PNG, timeout=5)
+    page.wait_for_function("document.querySelectorAll('#grid .tile').length === 3")
+    assert tile_names(page) == ["News 24", "Sport", "Server address"]
+    page.wait_for_function("document.querySelector('#grid .tile img') !== null")
+    assert "/logo?v=1" in page.get_attribute("#grid .tile img", "src")
+    assert page.is_hidden("#grid-empty")
+
+    page.keyboard.press("ArrowRight")
+    page.wait_for_function("document.querySelector('#grid .tile.focused .tile-name').textContent === 'Sport'")
+    page.keyboard.press("Enter")
+    page.wait_for_function("document.body.classList.contains('mode-playing')")
+    assert page.text_content("#osd-title") == "Sport"
+    assert calls(page, "open")[-1][1].endswith("/master.m3u8")
+
+    # CH+ goes on to the next channel, wrapping round to the first.
+    page.keyboard.press("PageUp")
+    page.wait_for_function("document.getElementById('osd-title').textContent === 'News 24'")
+    page.wait_for_function("document.body.classList.contains('mode-playing')")
+
+    # Back stops and returns to the grid, focused on the channel that was playing.
+    page.keyboard.press("Escape")
+    page.wait_for_function("document.body.classList.contains('mode-idle')")
+    assert page.text_content("#grid .tile.focused .tile-name") == "News 24"
+
+
+def test_channel_that_fails_to_resolve_shows_error(tv_page):
+    page, server = tv_page
+    httpx.post(f"{server.url}/api/channels", json={"name": "Gone", "url": "https://site.example/novideo"}, timeout=5)
+    page.wait_for_function("document.querySelectorAll('#grid .tile').length === 2")
+    page.keyboard.press("Enter")
+    page.wait_for_function("document.body.classList.contains('mode-error')")
+    assert "Couldn't find a video" in page.text_content("#error-message")
+    page.keyboard.press("Enter")
+    page.wait_for_function("document.body.classList.contains('mode-idle')")
+
+
+def test_grid_reaches_settings_tile(tv_page):
+    page, server = tv_page
+    add_channel(server, "One", "one")
+    page.wait_for_function("document.querySelectorAll('#grid .tile').length === 2")
+    page.keyboard.press("ArrowRight")
+    page.keyboard.press("Enter")
+    page.wait_for_function("document.body.classList.contains('mode-settings')")
+
+
+def test_phone_page_saves_channel_with_logo_and_tv_shows_it(tv_page, tmp_path):
+    page, server = tv_page
+    logo = tmp_path / "logo.png"
+    logo.write_bytes(PNG)
+    phone = page.context.browser.new_page()
+    phone.goto(server.url)
+    phone.click("#add-channel")
+    phone.fill("#channel-name", "Golazo")
+    phone.fill("#channel-url", "https://site.example/video/golazo")
+    phone.set_input_files("#channel-logo", str(logo))
+    phone.click("#channel-save")
+    phone.wait_for_function("document.getElementById('message').textContent.startsWith('Saved Golazo')")
+    phone.wait_for_function("document.querySelectorAll('#channels li').length === 1")
+    page.wait_for_function("document.querySelectorAll('#grid .tile img').length === 1")
+    assert tile_names(page)[0] == "Golazo"
+    channel = httpx.get(f"{server.url}/api/channels", timeout=5).json()["channels"][0]
+    assert channel["has_logo"] is True
+
+    # Play it from the phone.
+    phone.click("#channels li button:has-text('Play')")
+    page.wait_for_function("document.getElementById('osd-title').textContent === 'Golazo'")

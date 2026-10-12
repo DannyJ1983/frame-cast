@@ -9,6 +9,7 @@ Share a webpage from a phone; a home server (Pi) finds the video stream with yt-
   - `sniffer.py`: opens pages in headless Chromium (Playwright, system `chromium` on the Pi) and catches the stream the player requests
   - `relay.py`: signed relay for streams that need headers or cookies
   - `hub.py`: in-memory state and event queues
+  - `channels.py`: saved channels (name, page link, logo) in the state folder
   - `server.py`: routes
   - `tvlaunch.py`: opens the app over Samsung's local API
 - `tv/`: the Tizen web app. `core.js` is pure and tested under Node; `fakeplayer.js` stands in for `webapis.avplay` in desktop browsers.

@@ -10,16 +10,19 @@
   <!-- Samsung's player draws video on a plane behind the page, inside this element. -->
   <object id="av-player" type="application/avplayer"></object>
 
-  <section id="idle" class="screen">
-    <div class="logo"><span class="frame"></span>Frame Cast</div>
-    <p class="lead">Share a page from your phone to play its video here.</p>
-    <p id="hub-status" class="status">Connecting…</p>
-    <p class="hint">OK: change the home server address · Back: close</p>
+  <section id="idle" class="screen home">
+    <header class="home-head">
+      <div class="logo small"><span class="frame"></span>Frame Cast</div>
+      <p id="hub-status" class="status">Connecting…</p>
+    </header>
+    <p id="grid-empty" class="empty">No channels yet. Save some on the phone page<span id="hub-address"></span>, or share a page from your phone to play it here.</p>
+    <div id="grid" class="grid"></div>
+    <p class="hint">OK: play · Back: close</p>
   </section>
 
   <section id="loading" class="screen">
     <div class="spinner"></div>
-    <p class="lead">Loading</p>
+    <p id="loading-lead" class="lead">Loading</p>
     <p id="loading-title" class="title"></p>
   </section>
 

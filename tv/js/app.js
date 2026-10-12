@@ -1,4 +1,4 @@
-// Frame Cast TV app: wires the hub connection, the player, the screens and the remote.
+// Frame Cast TV app: wires the hub connection, the player, the channel grid, the screens and the remote.
 (function () {
   "use strict";
   var core = window.FrameCastCore;
@@ -108,6 +108,7 @@
       } else {
         document.body.classList.remove("osd-visible");
         setMode("idle");
+        if (command && command.channel_id) focusChannel(command.channel_id);
       }
       $("osd-title").textContent = command ? command.title : "";
       updateOsd();
@@ -120,7 +121,15 @@
   });
 
   function playCommand(next) {
+    if (skipChannel && next.channel_id === skipChannel) {
+      // The viewer backed out while this channel was being looked up.
+      skipChannel = null;
+      hub.report({ command_id: next.id, title: next.title, state: "stopped", message: null, position: 0, duration: 0 });
+      return;
+    }
+    finding = null;
     command = next;
+    $("loading-lead").textContent = "Loading";
     player.play(core.streamUrl(next, hubUrl), {
       userAgent: next.user_agent,
       isLive: next.is_live,
@@ -137,6 +146,115 @@
     if (mode === "playing") showOsd(player.state === "paused");
   }
 
+  // Channels ------------------------------------------------------------------
+
+  var channels = [];
+  var gridIndex = 0;
+  var finding = null; // id of the channel being looked up, before its stream arrives
+  var skipChannel = null; // a lookup the viewer backed out of
+
+  function tileCount() {
+    return channels.length + 1; // the last tile opens the server settings
+  }
+
+  function makeTile(name, logoUrl, fallback, channelId) {
+    var tile = document.createElement("div");
+    tile.className = "tile";
+    if (channelId) tile.setAttribute("data-channel", channelId);
+    var box = document.createElement("div");
+    box.className = "tile-logo";
+    if (logoUrl) {
+      var img = document.createElement("img");
+      img.alt = "";
+      img.onerror = function () { box.textContent = fallback; };
+      img.src = logoUrl;
+      box.appendChild(img);
+    } else {
+      box.textContent = fallback;
+    }
+    var label = document.createElement("div");
+    label.className = "tile-name";
+    label.textContent = name;
+    tile.appendChild(box);
+    tile.appendChild(label);
+    return tile;
+  }
+
+  function renderGrid() {
+    var grid = $("grid");
+    grid.textContent = "";
+    $("grid-empty").style.display = channels.length ? "none" : "";
+    $("hub-address").textContent = hubUrl ? " (" + hubUrl + ")" : "";
+    channels.forEach(function (channel) {
+      var logo = channel.has_logo && hub ? hub.logoUrl(channel) : null;
+      grid.appendChild(makeTile(channel.name, logo, core.initials(channel.name), channel.id));
+    });
+    var settings = makeTile("Server address", null, "Settings", null);
+    settings.className += " settings";
+    grid.appendChild(settings);
+    gridIndex = Math.min(gridIndex, tileCount() - 1);
+    showFocus();
+  }
+
+  function showFocus() {
+    var tiles = $("grid").children;
+    for (var i = 0; i < tiles.length; i++) tiles[i].classList.toggle("focused", i === gridIndex);
+    var focused = tiles[gridIndex];
+    if (focused) {
+      try {
+        focused.scrollIntoView({ block: "nearest" });
+      } catch (e) {
+        focused.scrollIntoView(false);
+      }
+    }
+  }
+
+  function focusChannel(channelId) {
+    for (var i = 0; i < channels.length; i++) {
+      if (channels[i].id === channelId) gridIndex = i;
+    }
+    showFocus();
+  }
+
+  function playChannel(channel) {
+    if (!hub) return;
+    finding = channel.id;
+    skipChannel = null;
+    gridIndex = channels.indexOf(channel);
+    document.body.classList.remove("osd-visible");
+    $("loading-lead").textContent = "Finding the stream";
+    $("loading-title").textContent = channel.name;
+    setMode("loading");
+    hub.playChannel(channel.id).then(function (result) {
+      if (finding !== channel.id) return; // already playing, replaced or cancelled
+      if (!result.ok) {
+        finding = null;
+        $("error-message").textContent = result.message;
+        setMode("error");
+      }
+      // Otherwise the stream arrives as a play event.
+    });
+  }
+
+  function cancelFinding() {
+    skipChannel = finding;
+    finding = null;
+    setMode("idle");
+    showFocus();
+  }
+
+  function stepChannel(step) {
+    var next = core.neighbourChannel(channels, finding || (command && command.channel_id), step);
+    if (!next) return;
+    if (player.state !== "stopped") player.stop();
+    playChannel(next);
+  }
+
+  function activateTile() {
+    if (gridIndex < channels.length) playChannel(channels[gridIndex]);
+    else openSettings();
+  }
+
   // Hub -----------------------------------------------------------------------
 
   function connect(url) {
@@ -151,6 +269,10 @@
     hub = new window.FrameCastHubClient(hubUrl, {
       onPlay: playCommand,
       onControl: handleControl,
+      onChannels: function (list) {
+        channels = list;
+        renderGrid();
+      },
       onConnected: function () {
         disconnectedSince = null;
         hubStatus("Ready. Connected to " + hubUrl);
@@ -166,7 +288,7 @@
 
   setInterval(function () {
     if (disconnectedSince !== null && Date.now() - disconnectedSince > UNREACHABLE_AFTER_MS) {
-      hubStatus("Can't reach the home server at " + hubUrl + ". Is it running? Press OK to change the address.", true);
+      hubStatus("Can't reach the home server at " + hubUrl + ". Is it running? Choose Server address to change it.", true);
     }
   }, 2000);
 
@@ -203,7 +325,7 @@
 
   function registerKeys() {
     if (typeof tizen === "undefined" || !tizen.tvinputdevice) return;
-    core.MEDIA_KEYS.forEach(function (name) {
+    core.REGISTER_KEYS.forEach(function (name) {
       try {
         tizen.tvinputdevice.registerKey(name);
         keyCodes[name] = tizen.tvinputdevice.getKey(name).code;
@@ -236,19 +358,39 @@
       case "seek-back": player.seek(-core.SEEK_BACK_SECONDS); showOsd(false); break;
       case "seek-forward": player.seek(core.SEEK_FORWARD_SECONDS); showOsd(false); break;
       case "show-osd": showOsd(player.state === "paused"); break;
-      case "stop": player.stop(); break;
-      case "dismiss": setMode("idle"); report("idle"); break;
-      case "settings": openSettings(); break;
+      case "stop":
+        if (finding) cancelFinding();
+        else player.stop();
+        break;
+      case "next-channel": stepChannel(1); break;
+      case "prev-channel": stepChannel(-1); break;
+      case "dismiss":
+        setMode("idle");
+        report("idle");
+        showFocus();
+        break;
       case "exit": exitApp(); break;
+      case "move-left":
+      case "move-right":
+      case "move-up":
+      case "move-down":
+        gridIndex = core.moveFocus(gridIndex, tileCount(), core.GRID_COLUMNS, action.slice(5));
+        showFocus();
+        break;
       case "move-focus": focus(focusIndex + 1); break;
       case "activate":
-        if (focusIndex === 0) $("hub-input").focus();
+        if (mode !== "settings") activateTile();
+        else if (focusIndex === 0) $("hub-input").focus();
         else saveSettings();
         break;
       case "cancel":
         $("hub-input").blur();
-        if (hubUrl) setMode("idle");
-        else exitApp();
+        if (hubUrl) {
+          setMode("idle");
+          showFocus();
+        } else {
+          exitApp();
+        }
         break;
     }
   });
@@ -272,5 +414,10 @@
   registerKeys();
   setMode("idle");
   connect(core.pickHubUrl(savedHubUrl(), (window.FRAMECAST_CONFIG || {}).hubUrl, window.location));
-  window.FrameCast = { player: player, mode: function () { return mode; } };
+  renderGrid();
+  window.FrameCast = {
+    player: player,
+    mode: function () { return mode; },
+    gridIndex: function () { return gridIndex; },
+  };
 })();

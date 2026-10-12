@@ -2,7 +2,7 @@
 (function (root) {
   "use strict";
 
-  /** handlers: { onPlay(command), onControl(control), onConnected(), onDisconnected() } */
+  /** handlers: { onPlay(command), onControl(control), onChannels(list), onConnected(), onDisconnected() } */
   function HubClient(hubUrl, handlers) {
     this.hubUrl = hubUrl.replace(/\/+$/, "");
     this.handlers = handlers;
@@ -30,12 +30,37 @@
     source.addEventListener("control", function (event) {
       self.handlers.onControl(JSON.parse(event.data));
     });
+    source.addEventListener("channels", function (event) {
+      self.handlers.onChannels(JSON.parse(event.data).channels || []);
+    });
   };
 
   HubClient.prototype.close = function () {
     if (this.source) this.source.close();
     this.source = null;
     this.connected = false;
+  };
+
+  /** Address of a channel's logo; the version changes whenever the logo does. */
+  HubClient.prototype.logoUrl = function (channel) {
+    return this.hubUrl + "/api/channels/" + encodeURIComponent(channel.id) + "/logo?v=" + channel.logo_version;
+  };
+
+  /**
+   * Ask the hub to find and play a saved channel. Resolves to { ok, message }; the stream itself
+   * arrives as a play event. No body or custom headers, so no CORS preflight.
+   */
+  HubClient.prototype.playChannel = function (channelId) {
+    return fetch(this.hubUrl + "/api/channels/" + encodeURIComponent(channelId) + "/play", { method: "POST" })
+      .then(function (response) {
+        return response.json().then(
+          function (data) { return { ok: response.ok, message: data.message || "" }; },
+          function () { return { ok: response.ok, message: response.statusText }; }
+        );
+      })
+      .catch(function () {
+        return { ok: false, message: "Couldn't reach the home server." };
+      });
   };
 
   /** Send a status report. Plain text so the browser doesn't need a CORS preflight. */

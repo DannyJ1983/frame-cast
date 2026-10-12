@@ -23,10 +23,17 @@
     MediaStop: 413,
     MediaFastForward: 417,
     MediaRewind: 412,
+    ChannelUp: 427,
+    ChannelDown: 428,
   };
-  var MEDIA_KEYS = ["MediaPlayPause", "MediaPlay", "MediaPause", "MediaStop", "MediaFastForward", "MediaRewind"];
+  // Keys the app has to ask the TV for; the arrows, OK and Back always arrive.
+  var REGISTER_KEYS = [
+    "MediaPlayPause", "MediaPlay", "MediaPause", "MediaStop", "MediaFastForward", "MediaRewind",
+    "ChannelUp", "ChannelDown",
+  ];
   // Desktop keyboard equivalents, for trying the app in a browser.
-  var BROWSER_KEYS = { 27: "Return", 8: "Return", 32: "MediaPlayPause" };
+  var BROWSER_KEYS = { 27: "Return", 8: "Return", 32: "MediaPlayPause", 33: "ChannelUp", 34: "ChannelDown" };
+  var GRID_COLUMNS = 5;
 
   var SEEK_BACK_SECONDS = 10;
   var SEEK_FORWARD_SECONDS = 30;
@@ -110,6 +117,8 @@
       return "";
     }
     if (mode === "playing" || mode === "loading") {
+      if (keyName === "ChannelUp") return "next-channel";
+      if (keyName === "ChannelDown") return "prev-channel";
       if (keyName === "Enter" || keyName === "MediaPlayPause") return "toggle";
       if (keyName === "MediaPlay") return "resume";
       if (keyName === "MediaPause") return "pause";
@@ -123,10 +132,46 @@
       if (keyName === "Enter" || keyName === "Return") return "dismiss";
       return "";
     }
-    // idle
-    if (keyName === "Enter") return "settings";
+    // idle: the channel grid
+    if (keyName === "Left") return "move-left";
+    if (keyName === "Right") return "move-right";
+    if (keyName === "Up") return "move-up";
+    if (keyName === "Down") return "move-down";
+    if (keyName === "Enter") return "activate";
     if (keyName === "Return") return "exit";
     return "";
+  }
+
+  /** Where focus goes in a grid of ``count`` tiles, ``columns`` wide. Edges don't wrap. */
+  function moveFocus(index, count, columns, direction) {
+    if (count <= 0) return 0;
+    var i = Math.max(0, Math.min(count - 1, index));
+    if (direction === "left") return i > 0 ? i - 1 : i;
+    if (direction === "right") return i < count - 1 ? i + 1 : i;
+    if (direction === "up") return i - columns >= 0 ? i - columns : i;
+    if (direction === "down") {
+      if (i + columns < count) return i + columns;
+      // Into a shorter last row: land on its final tile.
+      return Math.floor(i / columns) < Math.floor((count - 1) / columns) ? count - 1 : i;
+    }
+    return i;
+  }
+
+  /** The channel ``step`` places from ``currentId`` in ``channels``, wrapping round; null if none. */
+  function neighbourChannel(channels, currentId, step) {
+    if (!channels || !channels.length) return null;
+    var index = -1;
+    for (var i = 0; i < channels.length; i++) {
+      if (channels[i].id === currentId) index = i;
+    }
+    if (index === -1) return step >= 0 ? channels[0] : channels[channels.length - 1];
+    return channels[(index + step + channels.length) % channels.length];
+  }
+
+  /** Up to two capital letters for a channel without a logo. */
+  function initials(name) {
+    var words = String(name || "").split(/\s+/).filter(function (w) { return w; });
+    return words.slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase(); }).join("") || "?";
   }
 
   /** Map a keyCode to its name, using codes reported by the TV where available. */
@@ -141,7 +186,11 @@
   return {
     DEFAULT_PORT: DEFAULT_PORT,
     KEY_CODES: KEY_CODES,
-    MEDIA_KEYS: MEDIA_KEYS,
+    REGISTER_KEYS: REGISTER_KEYS,
+    GRID_COLUMNS: GRID_COLUMNS,
+    moveFocus: moveFocus,
+    neighbourChannel: neighbourChannel,
+    initials: initials,
     SEEK_BACK_SECONDS: SEEK_BACK_SECONDS,
     SEEK_FORWARD_SECONDS: SEEK_FORWARD_SECONDS,
     normaliseHubUrl: normaliseHubUrl,

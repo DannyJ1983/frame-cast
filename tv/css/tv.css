@@ -83,3 +83,53 @@ body.mode-loading.osd-visible .osd { display: block; }
 .bar { height: 10px; background: rgba(255, 255, 255, 0.25); border-radius: 5px; overflow: hidden; margin-top: 20px; }
 #osd-bar { height: 100%; width: 0; background: #f2f3f5; }
 .osd-line { display: flex; justify-content: space-between; font-size: 32px; margin: 14px 0 0; }
+
+/* The start screen: a grid of saved channels. Tiles are inline blocks rather than CSS grid or
+   flexbox gaps, which the TV's Chromium 63 doesn't support. */
+.screen.home {
+  justify-content: flex-start;
+  align-items: stretch;
+  text-align: left;
+  padding: 50px 120px 30px;
+}
+.home-head { display: flex; align-items: center; justify-content: space-between; }
+.home-head .status { margin: 0; max-width: 1000px; text-align: right; font-size: 28px; }
+.logo.small { font-size: 56px; }
+.logo.small .frame { transform: scale(0.65); transform-origin: left center; margin-right: 0; }
+.empty { font-size: 34px; color: #aeb5bf; margin: 40px 0 10px; }
+.home .hint { margin-top: 10px; }
+
+.grid {
+  flex: 1;
+  overflow: hidden;
+  margin-top: 30px;
+  padding: 14px 10px;
+  font-size: 0; /* no stray gaps between inline-block tiles */
+}
+.tile {
+  display: inline-block;
+  vertical-align: top;
+  width: 300px;
+  margin: 0 28px 34px 0;
+  font-size: 28px;
+}
+.tile-logo {
+  height: 170px;
+  border-radius: 16px;
+  border: 5px solid transparent;
+  background: #1b2029;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: transform 120ms ease-out, border-color 120ms;
+  font-size: 64px;
+  font-weight: 700;
+  color: #8b94a1;
+}
+.tile-logo img { max-width: 86%; max-height: 80%; object-fit: contain; }
+.tile-name { margin-top: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #d5dae0; }
+.tile.focused .tile-logo { border-color: #6ea0ff; transform: scale(1.06); }
+.tile.focused .tile-name { color: #ffffff; }
+.tile.playing .tile-name::before { content: "\25B6  "; color: #6ea0ff; }
+.tile.settings .tile-logo { font-size: 30px; font-weight: 600; color: #aeb5bf; }

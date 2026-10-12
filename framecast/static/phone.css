@@ -88,3 +88,39 @@ summary { font-weight: 600; cursor: pointer; }
 ol { padding-left: 1.2rem; }
 li { margin: 4px 0; }
 code { font-size: 0.85em; overflow-wrap: anywhere; background: var(--bg); padding: 1px 4px; border-radius: 4px; }
+
+.link-button {
+  background: none; color: var(--accent); padding: 10px 0 0; font-weight: 600; border-radius: 0;
+}
+button.small { padding: 8px 14px; font-size: 0.9rem; }
+button.danger { background: var(--bad); color: #fff; }
+.muted { color: var(--muted); font-size: 0.95rem; }
+
+.section-head { display: flex; align-items: center; justify-content: space-between; margin-top: 24px; }
+.section-head h3 { margin: 0; }
+
+#channel-form { margin: 12px 0; }
+#channel-form label { margin-top: 10px; }
+#channel-form input[type="text"], #channel-form input:not([type]), #channel-form input[type="url"] { width: 100%; }
+.logo-row { display: flex; align-items: center; }
+.logo-row input { flex: 1; min-width: 0; padding: 8px 0; border: 0; background: none; }
+#logo-preview { width: 56px; height: 56px; object-fit: contain; margin-right: 12px; border-radius: 8px; background: var(--bg); }
+.form-buttons { display: flex; margin-top: 14px; }
+.form-buttons button { margin-right: 8px; }
+.form-buttons .danger { margin-left: auto; margin-right: 0; }
+
+#channels { list-style: none; margin: 10px 0 0; padding: 0; }
+#channels li {
+  display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line);
+}
+.channel-logo {
+  width: 48px; height: 48px; flex: none; border-radius: 10px; margin-right: 12px;
+  object-fit: contain; background: var(--card); border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--muted);
+}
+.channel-text { flex: 1; min-width: 0; }
+.channel-text b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.channel-text small { color: var(--muted); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.channel-buttons { display: flex; flex: none; }
+.channel-buttons button { padding: 8px 10px; margin-left: 6px; font-size: 0.85rem; }
+.channel-buttons button.arrow { padding: 8px 7px; margin-left: 4px; }

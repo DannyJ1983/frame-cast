@@ -136,6 +136,15 @@ The server can switch the TV to Frame Cast when you share a link, using Samsung'
 
 This hasn't been tried on the Frame yet. If the app doesn't open, run `frame-cast tv-apps` to see the app IDs the TV reports. Then set `FRAMECAST_TV_APP_ID` if Frame Cast is listed under an ID other than `FrameCast0.FrameCast`. A TV that's fully switched off can't be reached this way.
 
+## Saved channels
+
+On the phone page, **Channels → Add** saves a channel: a name, the link to its page, and optionally a logo picture from your phone. While something's playing, **Save as a channel** fills in the form for you. Channels show up on the TV's start screen as a grid:
+- Pick one with the arrows and press **OK**.
+- While a saved channel is playing, **CH+ / CH−** move to the next or previous channel.
+- **Back** stops and returns to the grid.
+
+A channel keeps its page link rather than the stream address, because stream addresses expire, so it always finds the current stream. A stream found in the last five minutes is reused, so flicking between channels is quick. Channels and logos are kept on the Pi in `/var/lib/frame-cast`.
+
 ## When something doesn't play
 
 - **Rule out the TV first.** On the server's web page, open the sharing section and press **Send a test video**. If that plays, the TV app is fine and the problem is the page.

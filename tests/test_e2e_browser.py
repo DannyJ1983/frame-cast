@@ -352,3 +352,30 @@ def test_dashboard_settings_from_the_phone(tv_page):
 
     phone.click("#dash-show")
     phone.wait_for_function("document.getElementById('dash-message').textContent.includes('Showing')")
+
+
+def test_bus_settings_from_the_phone_and_buses_on_the_tv(tv_page):
+    page, server = tv_page
+    phone = page.context.browser.new_page()
+    phone.goto(server.url)
+    phone.click("#dash-details summary")
+    phone.wait_for_function("document.querySelectorAll('#dash-bus-region option').length > 5")
+    phone.fill("#dash-place", "LS1 4AP")
+    phone.fill("#dash-bus-stops", "149000006934")
+    phone.fill("#dash-bus-key", "bus-key")
+    phone.click("#dash-save")
+    phone.wait_for_function("document.getElementById('dash-message').textContent.startsWith('Saved')")
+    assert "Saved" in phone.get_attribute("#dash-bus-key", "placeholder")
+    assert phone.is_visible("#dash-bus-forget")
+
+    frame = page.frame_locator("#dashboard-frame")
+    reload = "document.getElementById('dashboard-frame').contentWindow.Dashboard.load()"
+    page.evaluate(reload)
+    frame.locator("#buses-preparing").wait_for()  # the timetable is fetched the first time
+    deadline = time.time() + 15
+    while frame.locator("#bus-rows tr").count() == 0 and time.time() < deadline:
+        time.sleep(0.3)
+        page.evaluate(reload)
+    assert frame.locator("#bus-rows tr").count() > 0
+    assert frame.locator("#buses-stop").text_content() == "Churchill Square (Stop D)"
+    assert frame.locator("#buses-preparing").is_hidden()

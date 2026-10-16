@@ -13,9 +13,11 @@ NOW = datetime(2026, 10, 16, 14, 20, tzinfo=timezone.utc)
 def test_weather_forecast():
     result = weather.parse_forecast(open_meteo())
     assert result["now"] == {"temp": 14, "feels": 11, "wind_mph": 9, "text": "Light rain", "icon": "rain"}
-    assert result["today"] == {"text": "Light rain", "icon": "rain", "high": 14, "low": 8, "rain_chance": 80,
-                               "sunrise": "07:31", "sunset": "18:06"}
+    assert result["today"] == {"date": "2026-10-16", "text": "Light rain", "icon": "rain", "high": 14, "low": 8,
+                               "rain_chance": 80, "sunrise": "07:31", "sunset": "18:06"}
     assert result["tomorrow"]["text"] == "Cloudy" and result["tomorrow"]["high"] == 12
+    assert [d["date"] for d in result["days"]] == ["2026-10-17", "2026-10-18", "2026-10-19"]
+    assert [d["icon"] for d in result["days"]] == ["cloud", "showers", "clear"]
     # Every two hours for the next twelve, with night icons after dark.
     assert [h["time"] for h in result["hours"]] == ["16:00", "18:00", "20:00", "22:00", "00:00", "02:00"]
     assert [h["icon"] for h in result["hours"]] == ["cloud", "partly-night", "clear-night", "clear-night", "partly-night", "fog"]
@@ -28,6 +30,7 @@ def test_weather_codes_and_odd_data():
     assert weather.describe(None) == ("", "cloud")
     minimal = weather.parse_forecast({"current": {"temperature_2m": 3}})
     assert minimal["now"]["temp"] == 3 and minimal["hours"] == [] and minimal["today"] is None
+    assert minimal["days"] == []
     with pytest.raises(KeyError):
         weather.parse_forecast({"error": True, "reason": "bad"})
     params = weather.forecast_params(53.79648, -1.54785)

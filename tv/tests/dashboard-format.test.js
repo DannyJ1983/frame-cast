@@ -52,3 +52,15 @@ test("traffic line and setup hint", () => {
   assert.equal(F.needsSetup({ setup: { weather: true } }), false);
   assert.equal(F.needsSetup(null), true);
 });
+
+test("bus times, details and badge colours", () => {
+  assert.deepEqual(F.busWhen({ live: true, minutes: 5, time: "10:10" }), { text: "5 min", live: true });
+  assert.deepEqual(F.busWhen({ live: true, minutes: 0, time: "10:10" }), { text: "Due", live: true });
+  assert.deepEqual(F.busWhen({ live: false, minutes: null, time: "10:20" }), { text: "10:20", live: false });
+  assert.equal(F.busDetail({ live: true, late: 3, time: "10:10" }), "Due 10:10, 3 min late");
+  assert.equal(F.busDetail({ live: true, late: -2, time: "10:10" }), "Due 10:10, 2 min early");
+  assert.equal(F.busDetail({ live: true, late: 1, time: "10:10" }), "");
+  assert.equal(F.busDetail({ live: false, late: null, time: "10:10" }), "");
+  assert.equal(F.routeColour("7"), F.routeColour("7"));
+  assert.match(F.routeColour("N7"), /^#[0-9a-f]{6}$/);
+});

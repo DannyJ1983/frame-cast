@@ -31,7 +31,7 @@
         <p class="setup-text">On your phone, open <b id="setup-address"></b> and go to <b>Dashboard</b>. Add your postcode for the weather, your station for train times, and somewhere you drive to for traffic.</p>
       </section>
       <section id="weather" class="card" hidden>
-        <h2 class="card-title"><span>Forecast</span><span id="weather-place" class="card-sub"></span></h2>
+        <h2 class="card-title"><span class="card-name"><svg class="card-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.1 11 3.5 3.5 0 0 0 7 18z"/><path d="M12 2v1.5M4.9 4.9l1 1M19.1 4.9l-1 1"/></svg>Forecast</span><span id="weather-place" class="card-sub"></span></h2>
         <div class="today">
           <div class="today-main">
             <div id="today-range" class="today-range"></div>
@@ -44,11 +44,11 @@
           </div>
         </div>
         <div id="hours" class="hours"></div>
-        <p id="tomorrow" class="tomorrow"></p>
+        <ul id="days" class="days"></ul>
         <p class="card-note" data-note="weather"></p>
       </section>
       <section id="traffic" class="card" hidden>
-        <h2 class="card-title"><span id="traffic-title">Drive</span></h2>
+        <h2 class="card-title"><span class="card-name"><svg class="card-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16V11l2-5h10l2 5v5M5 16h14M5 16v2.5M19 16v2.5M5 11h14"/><circle cx="8" cy="13.5" r="0.6"/><circle cx="16" cy="13.5" r="0.6"/></svg><span id="traffic-title">Drive</span></span></h2>
         <div class="drive">
           <span id="drive-minutes" class="drive-minutes"></span>
           <span id="drive-text" class="drive-text"></span>
@@ -58,7 +58,7 @@
     </div>
     <div class="column" data-column="middle">
       <section id="trains" class="card" hidden>
-        <h2 class="card-title"><span>Departures</span><span id="trains-station" class="card-sub"></span></h2>
+        <h2 class="card-title"><span class="card-name"><svg class="card-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="14" rx="3"/><path d="M6 10h12M9 20l-2 2M15 20l2 2M9.5 14h.01M14.5 14h.01"/></svg>Trains</span><span id="trains-station" class="card-sub"></span></h2>
         <table class="departures">
           <tbody id="departures"></tbody>
         </table>
@@ -66,10 +66,21 @@
         <p id="trains-message" class="rail-message" hidden></p>
         <p class="card-note" data-note="trains"></p>
       </section>
+      <section id="buses" class="card" hidden>
+        <h2 class="card-title"><span class="card-name"><svg class="card-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="15" rx="2.5"/><path d="M5 11h14M5 7h14M8 18v2.5M16 18v2.5M8.5 14.5h.01M15.5 14.5h.01"/></svg>Buses</span><span id="buses-stop" class="card-sub"></span></h2>
+        <p id="buses-preparing" class="preparing" hidden></p>
+        <table class="departures buses">
+          <tbody id="bus-rows"></tbody>
+        </table>
+        <p id="buses-empty" class="empty" hidden>No buses in the next couple of hours.</p>
+        <p id="buses-legend" class="legend" hidden><span class="live-mark"></span>Live times. Clock times are from the timetable.</p>
+        <p id="buses-note" class="card-note"></p>
+        <p class="card-note" data-note="buses"></p>
+      </section>
     </div>
     <div class="column" data-column="right">
       <section id="news" class="card" hidden>
-        <h2 class="card-title"><span>Headlines</span><span id="news-source" class="card-sub"></span></h2>
+        <h2 class="card-title"><span class="card-name"><svg class="card-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h13v14H6a2 2 0 0 1-2-2V5zM17 9h3v8a2 2 0 0 1-2 2"/><path d="M7 9h7M7 12.5h7M7 16h4"/></svg>Headlines</span><span id="news-source" class="card-sub"></span></h2>
         <ul id="headlines" class="headlines"></ul>
         <p class="card-note" data-note="news"></p>
       </section>

@@ -7,7 +7,7 @@ phone ──share link──▶ home server (Pi) ──finds the stream──▶
 ```
 
 - **Home server** (`framecast/`): a small Python service on a Raspberry Pi or any always-on computer. It uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) to find the video stream inside the page and tells the TV app to play it. For pages yt-dlp doesn't know, where the player is built by JavaScript as on many live TV sites, it opens the page in a hidden Chromium and catches the stream the player asks for, skipping ads. If a site only serves video to requests with a Referer or cookies, the server relays the stream and adds them.
-- **TV app** (`tv/`): a Tizen web app that plays streams with Samsung's AVPlay player. That's the TV's hardware decoder, so HLS (including live streams), DASH and MP4 all work. It opens on a **dashboard** with the time, weather, train departures, traffic, headlines and a sports ticker.
+- **TV app** (`tv/`): a Tizen web app that plays streams with Samsung's AVPlay player. That's the TV's hardware decoder, so HLS (including live streams), DASH and MP4 all work. It opens on a **dashboard** with the time, weather, train and bus departures, traffic, headlines and a sports ticker.
 - **Phone**: share from any app with an iPhone Shortcut or the Android HTTP Shortcuts app, or paste links into the server's web page.
 
 ## What works and what doesn't
@@ -151,6 +151,7 @@ The TV app opens on a dashboard served by the Pi:
 - the time and date
 - the weather now and for the next 12 hours
 - departures from your station
+- buses from your stops, with live times where the buses are tracked
 - how long your drive will take in today's traffic
 - news headlines
 - a sports ticker with live scores, results and fixtures
@@ -161,11 +162,17 @@ Set it up on the phone page under **Dashboard → Dashboard settings**. Then **S
 |---|---|---|
 | Weather | Your postcode or town | [Open-Meteo](https://open-meteo.com), free, no key. Postcodes are looked up with [postcodes.io](https://postcodes.io). |
 | Trains | Your station's three-letter code, and a free key | National Rail's live departures, through the [Rail Data Marketplace](https://raildata.org.uk). Sign up, subscribe to **Live Departure Board**, and copy the consumer key from its Specification tab. |
+| Buses | Your stop codes (up to three) | The Bus Open Data Service: every operator's timetable, and with a free key, live bus positions. On buses.co.uk, a stop's code is the number at the end of its page's address. |
 | Traffic | Where you drive to, and a free key | [TomTom](https://developer.tomtom.com) routing with live traffic. The drive starts from your postcode. |
 | Headlines | Nothing (BBC News by default) | Any BBC News section, The Guardian, Sky News, or the address of any RSS feed. |
 | Sport | Leagues to follow (the Premier League by default) | ESPN's scoreboards, with BBC Sport headlines when no matches are on. Name your teams to pick their matches out. |
 
-A card that isn't set up is left off. Cards are only fetched while the dashboard is on screen: trains every minute, live scores every minute, traffic every 5 minutes, and the weather every 15. If a source stops answering, its card keeps the last good data and says it couldn't update. The keys are kept on the Pi in `/var/lib/frame-cast/dashboard.json`, readable only by the Frame Cast service, and are never sent back to the phone page.
+**Bus times in more detail.** The government's Bus Open Data Service publishes every operator's timetable, and the live GPS position of every bus. There's no feed of arrival times for each stop, so the Pi works them out:
+- The first time, it downloads your region's timetable. That's a few hundred megabytes and takes a few minutes; it's refreshed weekly. It keeps just the journeys calling at your stops. The region is worked out from your postcode, or you can pick it.
+- Without a key, the card shows timetabled times.
+- With a free key from [data.bus-data.dft.gov.uk](https://data.bus-data.dft.gov.uk), it matches each bus's position to its journey, works out how late it's running, and shows live minutes (with a green dot) for the buses it can place. The method follows the [BODS Bus Tracker for Home Assistant](https://github.com/IainPHay/home-assistant-bods-bus-tracker). These are estimates, not the operator's own predictions, so they can differ from the stop's display.
+
+A card that isn't set up is left off. Cards are only fetched while the dashboard is on screen: buses every 30 seconds, trains and live scores every minute, traffic every 5 minutes, and the weather every 15. If a source stops answering, its card keeps the last good data and says it couldn't update. The keys are kept on the Pi in `/var/lib/frame-cast/dashboard.json`, readable only by the Frame Cast service, and are never sent back to the phone page.
 
 The dashboard page comes from the Pi, so changes to it arrive with a Pi update. A dashboard already open on the TV reloads itself. Only the step from the app into the dashboard needs the TV app, so that's the one reinstall it takes.
 
@@ -203,7 +210,8 @@ Checked on the real TV (2019 Frame, QE43LS03R):
 
 Not yet confirmed on the TV:
 - the dashboard inside the TV app (it's a page from the Pi in a frame), and its remote keys
-- the live train and traffic services, which need your own keys; they're built to their documentation and tested against sample answers
+- the live train, bus and traffic services, which need your own keys; they're built to their documentation and tested against sample answers
+- the bus timetable download for a real region, and live bus estimates against real buses
 - every remote-control key, and suspend/resume when switching apps
 - 4K streams
 - opening the app automatically over Samsung's remote-control interface

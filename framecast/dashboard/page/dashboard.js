@@ -103,16 +103,24 @@
       hours.appendChild(slot);
     });
 
-    var tomorrow = $("tomorrow");
-    clear(tomorrow);
-    if (data.tomorrow) {
-      tomorrow.appendChild(document.createTextNode("Tomorrow: "));
-      tomorrow.appendChild(make("b", "", data.tomorrow.text));
-      tomorrow.appendChild(document.createTextNode(", " + F.tempText(data.tomorrow.high) + " / " + F.tempText(data.tomorrow.low)));
-    }
+    var days = $("days");
+    clear(days);
+    (data.days || []).forEach(function (day) {
+      var li = make("li", "day");
+      li.appendChild(make("span", "day-name", F.dayName(day.date)));
+      var pic = make("span", "day-icon");
+      pic.innerHTML = iconSvg(day.icon);
+      li.appendChild(pic);
+      li.appendChild(make("span", "day-text", day.text));
+      li.appendChild(make("span", "day-rain", day.rain_chance >= 20 ? day.rain_chance + "%" : ""));
+      var range = make("span", "day-range", F.tempText(day.high) + " ");
+      range.appendChild(make("span", "low", F.tempText(day.low)));
+      li.appendChild(range);
+      days.appendChild(li);
+    });
   }
 
-  function renderTrains(card) {
+  function renderTrains(card, rowLimit) {
     var data = card ? card.data : null;
     $("trains").hidden = !card;
     note("trains", card);
@@ -124,21 +132,14 @@
       return;
     }
     $("trains-station").textContent = data.station + (data.to ? " to " + data.to : "");
-    data.services.forEach(function (service) {
+    data.services.slice(0, rowLimit).forEach(function (service) {
       var row = make("tr", service.state === "cancelled" ? "cancelled" : "");
       row.appendChild(make("td", "dep-time", service.time));
       var dest = make("td", "dep-dest");
       dest.appendChild(make("div", "dep-name", service.destination));
-      if (service.via) dest.appendChild(make("small", "", service.via));
+      var detail = F.trainDetail(service);
+      if (detail) dest.appendChild(make("small", "", detail));
       row.appendChild(dest);
-      var platform = make("td", "dep-plat");
-      if (service.platform === "Bus") {
-        platform.textContent = "Bus";
-      } else if (service.platform) {
-        platform.appendChild(document.createTextNode("Plat "));
-        platform.appendChild(make("b", "", service.platform));
-      }
-      row.appendChild(platform);
       row.appendChild(make("td", "dep-status " + service.state, service.status));
       body.appendChild(row);
     });
@@ -146,6 +147,41 @@
     var message = data.messages && data.messages[0];
     $("trains-message").hidden = !message;
     $("trains-message").textContent = message || "";
+  }
+
+  function renderBuses(card, rowLimit) {
+    var data = card ? card.data : null;
+    $("buses").hidden = !card;
+    note("buses", card);
+    var body = $("bus-rows");
+    clear(body);
+    var preparing = Boolean(data && data.preparing);
+    $("buses-preparing").hidden = !preparing;
+    $("buses-preparing").textContent = preparing ? data.message : "";
+    var services = data && !preparing ? data.services : [];
+    $("buses-stop").textContent = data && data.stop ? data.stop : "";
+    services.slice(0, rowLimit).forEach(function (bus) {
+      var row = make("tr");
+      var route = make("td", "bus-route");
+      var badge = make("span", "route-badge", bus.route);
+      badge.style.backgroundColor = F.routeColour(bus.route);
+      route.appendChild(badge);
+      row.appendChild(route);
+      var dest = make("td", "bus-dest");
+      dest.appendChild(make("div", "dep-name", bus.destination));
+      var detail = F.busDetail(bus);
+      if (detail) dest.appendChild(make("small", "", detail));
+      row.appendChild(dest);
+      var when = F.busWhen(bus);
+      var cell = make("td", "bus-when" + (when.live ? " live" : ""));
+      if (when.live) cell.appendChild(make("span", "live-mark"));
+      cell.appendChild(document.createTextNode(when.text));
+      row.appendChild(cell);
+      body.appendChild(row);
+    });
+    $("buses-empty").hidden = !data || preparing || services.length > 0;
+    $("buses-legend").hidden = !services.some(function (bus) { return bus.live; });
+    $("buses-note").textContent = data && data.note ? data.note : "";
   }
 
   function renderTraffic(card, label) {
@@ -237,7 +273,19 @@
   function layoutColumns() {
     var columns = document.querySelectorAll(".column");
     for (var i = 0; i < columns.length; i++) {
-      columns[i].hidden = columns[i].querySelectorAll(".card:not([hidden])").length === 0;
+      var shown = columns[i].querySelectorAll(".card:not([hidden])");
+      columns[i].hidden = shown.length === 0;
+      columns[i].classList.toggle("shared", columns[i].getAttribute("data-column") === "middle" && shown.length > 1);
+      var cards = columns[i].querySelectorAll(".card");
+      for (var j = 0; j < cards.length; j++) cards[j].classList.toggle("grow", cards[j] === shown[shown.length - 1]);
+    }
+  }
+
+  /** Drop rows from the end of a list until its card shows them all (on screens where cards share the height). */
+  function fit(card, list) {
+    if (card.hidden) return;
+    while (list.children.length > 1 && card.scrollHeight > card.clientHeight + 1) {
+      list.removeChild(list.lastChild);
     }
   }
 
@@ -254,10 +302,15 @@
     $("setup-address").textContent = window.location.protocol + "//" + window.location.host;
     renderWeather(cards.weather, snapshot.place);
     renderTraffic(cards.traffic, snapshot.traffic_label);
-    renderTrains(cards.trains);
+    renderTrains(cards.trains, 8);
+    renderBuses(cards.buses, 8);
     renderNews(cards.news, now);
     renderSport(cards.sport, now);
     layoutColumns();
+    fit($("trains"), $("departures"));
+    fit($("buses"), $("bus-rows"));
+    fit($("news"), $("headlines"));
+    fit($("weather"), $("days"));
   }
 
   function load() {

@@ -18,7 +18,7 @@ from .sport import DEFAULT_LEAGUES
 
 log = logging.getLogger(__name__)
 
-SECRETS = ("rail_key", "traffic_key")
+SECRETS = ("rail_key", "traffic_key", "bus_key")
 
 
 class DashboardError(ValueError):
@@ -36,6 +36,10 @@ class DashboardSettings:
     station: str = ""
     station_to: str = ""
     rail_key: str = ""
+    bus_stops: str = ""
+    bus_lines: str = ""
+    bus_key: str = ""
+    bus_region: str = "auto"
     traffic_to: str = ""
     traffic_label: str = ""
     traffic_to_name: str = ""
@@ -62,6 +66,7 @@ class DashboardSettings:
         return {
             "weather": self.has_place,
             "trains": bool(self.station and self.rail_key),
+            "buses": bool(self.bus_stops),
             "traffic": bool(
                 self.has_place and self.traffic_to_latitude is not None and self.traffic_to_longitude is not None
                 and self.traffic_key
@@ -75,6 +80,7 @@ class DashboardSettings:
         data = {k: v for k, v in asdict(self).items() if k not in SECRETS}
         data["has_rail_key"] = bool(self.rail_key)
         data["has_traffic_key"] = bool(self.traffic_key)
+        data["has_bus_key"] = bool(self.bus_key)
         return data
 
 

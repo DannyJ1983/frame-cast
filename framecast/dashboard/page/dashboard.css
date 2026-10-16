@@ -50,18 +50,31 @@ body {
   background: var(--card);
   border: 1px solid var(--card-line);
   border-radius: 1.1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0.6rem 1.6rem rgba(0, 0, 0, 0.18);
   padding: 1.2rem 1.4rem;
   margin-bottom: 1.4rem;
   box-sizing: border-box;
   overflow: hidden;
 }
-.column .card:last-child { flex: 1 1 auto; }
+.column .card.grow { flex: 1 1 auto; }
+/* Trains and buses share the middle column evenly. */
+.column.shared .card { flex: 1 1 0; }
+#weather { display: flex; flex-direction: column; }
+#weather .hours { margin-top: auto; margin-bottom: auto; padding: 1.3rem 0; }
 .card-title {
   display: flex; justify-content: space-between; align-items: baseline;
   margin: 0 0 1rem; font-size: 1.05rem; font-weight: 700; letter-spacing: 0.12rem;
   text-transform: uppercase; color: var(--muted);
 }
-.card-sub { letter-spacing: 0; text-transform: none; font-weight: 600; color: var(--text); font-size: 1.2rem; }
+.card-name { display: flex; align-items: center; }
+.card-icon {
+  width: 1.45rem; height: 1.45rem; margin-right: 0.6rem; flex: none;
+  fill: none; stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.card-sub {
+  letter-spacing: 0; text-transform: none; font-weight: 600; color: var(--text); font-size: 1.2rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-left: 1rem;
+}
 .card-note { margin: 0.8rem 0 0; color: var(--warn); font-size: 1.05rem; }
 .card-note:empty { display: none; }
 .empty { color: var(--muted); font-size: 1.3rem; }
@@ -76,15 +89,22 @@ body {
 .today-text { font-size: 1.3rem; color: var(--muted); margin-top: 0.2rem; }
 .today-facts { text-align: right; font-size: 1.15rem; color: var(--muted); line-height: 1.6; }
 .today-facts .rain { color: var(--rain); }
-.hours { display: flex; justify-content: space-between; margin-top: 1.3rem; }
+.hours { display: flex; justify-content: space-between; }
 .hour { flex: 1 1 0; text-align: center; }
 .hour-time { font-size: 1.05rem; color: var(--muted); }
 .hour-icon { width: 2.8rem; height: 2.8rem; margin: 0.35rem auto; }
 .hour-icon svg { width: 100%; height: 100%; }
 .hour-temp { font-size: 1.35rem; font-weight: 700; }
 .hour-rain { font-size: 0.95rem; color: var(--rain); min-height: 1.2rem; }
-.tomorrow { margin: 1.1rem 0 0; font-size: 1.15rem; color: var(--muted); }
-.tomorrow b { color: var(--text); font-weight: 600; }
+.days { list-style: none; margin: 0; padding: 0; }
+.day { display: flex; align-items: center; padding: 0.45rem 0; border-top: 1px solid var(--card-line); font-size: 1.2rem; }
+.day-name { width: 3.4rem; font-weight: 700; }
+.day-icon { width: 1.9rem; height: 1.9rem; margin-right: 0.8rem; flex: none; }
+.day-icon svg { width: 100%; height: 100%; }
+.day-text { flex: 1 1 auto; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.day-rain { width: 3.2rem; text-align: right; color: var(--rain); font-size: 1.05rem; }
+.day-range { width: 5.4rem; text-align: right; font-weight: 700; }
+.day-range .low { color: var(--muted); font-weight: 600; }
 
 /* Traffic card -------------------------------------------------------------------- */
 .drive { display: flex; flex-direction: column; }
@@ -102,8 +122,6 @@ body {
 .dep-dest { padding-right: 0.8rem !important; }
 .dep-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .dep-dest small { display: block; font-size: 1rem; color: var(--muted); margin-top: 0.15rem; }
-.dep-plat { width: 5.4rem; text-align: center; color: var(--muted); white-space: nowrap; }
-.dep-plat b { color: var(--text); }
 .dep-status { width: 8rem; text-align: right; font-weight: 600; white-space: nowrap; }
 .dep-status.ok { color: var(--good); }
 .dep-status.late { color: var(--warn); }
@@ -114,6 +132,27 @@ tr.cancelled .dep-time, tr.cancelled .dep-dest { text-decoration: line-through; 
   background: rgba(245, 189, 79, 0.12); color: var(--warn); font-size: 1.05rem; line-height: 1.4;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
 }
+
+/* Buses card --------------------------------------------------------------------- */
+.bus-route { width: 4.6rem; }
+.route-badge {
+  display: inline-block; min-width: 3.4rem; padding: 0.3rem 0.5rem; box-sizing: border-box;
+  border-radius: 0.55rem; text-align: center; font-weight: 800; font-size: 1.3rem; color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+.bus-dest small { display: block; font-size: 1rem; color: var(--warn); margin-top: 0.15rem; }
+.bus-when { width: 7rem; text-align: right; font-weight: 700; white-space: nowrap; color: var(--muted); }
+.bus-when.live { color: var(--good); }
+.departures.buses td { vertical-align: middle; }
+.live-mark {
+  display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 50%;
+  background: var(--good); margin-right: 0.5rem; vertical-align: 0.15rem;
+  box-shadow: 0 0 0 0.25rem rgba(87, 208, 140, 0.18);
+}
+.legend { margin: 0.9rem 0 0; font-size: 1rem; color: var(--faint); }
+.preparing { font-size: 1.3rem; color: var(--muted); line-height: 1.45; margin: 0; }
+.preparing:after { content: " …"; animation: blink 1.4s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: 0.2; } }
 
 /* News card ----------------------------------------------------------------------- */
 .headlines { list-style: none; margin: 0; padding: 0; }
@@ -139,7 +178,10 @@ tr.cancelled .dep-time, tr.cancelled .dep-dest { text-decoration: line-through; 
   letter-spacing: 0.1rem; text-transform: uppercase;
 }
 .ticker-label.live { background: var(--bad); color: #fff; }
-.ticker-window { flex: 1 1 auto; overflow: hidden; white-space: nowrap; position: relative; }
+.ticker-window {
+  flex: 1 1 auto; overflow: hidden; white-space: nowrap; position: relative;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 2.5%, #000 97.5%, transparent);
+}
 .ticker-track { display: inline-block; white-space: nowrap; font-size: 1.4rem; }
 .ticker-track.moving { animation: ticker linear infinite; }
 @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
@@ -173,8 +215,12 @@ tr.cancelled .dep-time, tr.cancelled .dep-dest { text-decoration: line-through; 
   .now { display: none !important; } /* the weather card says the same */
   .departures { font-size: 1.15rem; }
   .dep-time { width: 3.9rem; }
-  .dep-plat { width: 4.4rem; }
   .dep-status { width: 6.4rem; }
+  .card-title { flex-wrap: wrap; }
+  .card-sub { width: 100%; margin: 0.45rem 0 0; white-space: normal; font-size: 1.1rem; }
+  .bus-route { width: 3.6rem; }
+  .route-badge { min-width: 2.8rem; font-size: 1.05rem; }
+  .bus-when { width: 5.2rem; }
   .columns { display: block; }
   .column { margin-right: 0; }
   .ticker { position: fixed; left: 0; right: 0; bottom: 0; margin: 0; padding: 0 1rem; }

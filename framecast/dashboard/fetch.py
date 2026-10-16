@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import os
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -53,6 +55,28 @@ class Fetcher:
     async def text(self, url: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None) -> str:
         """GET ``url`` as text."""
         return (await self._get(url, params, headers)).text
+
+    async def download(self, url: str, path: Path, max_bytes: int) -> None:
+        """Stream ``url`` into ``path``, replacing it only once the whole file has arrived."""
+        host = urlsplit(url).hostname
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temp = path.with_name(path.name + ".part")
+        try:
+            async with self._client.stream("GET", url, timeout=httpx.Timeout(60.0, read=300.0)) as response:
+                if response.status_code >= 400:
+                    raise FetchError(f"{host} answered {response.status_code}", response.status_code)
+                size = 0
+                with open(temp, "wb") as handle:
+                    async for chunk in response.aiter_bytes(256 * 1024):
+                        size += len(chunk)
+                        if size > max_bytes:
+                            raise FetchError(f"{host} sent more than expected")
+                        handle.write(chunk)
+            os.replace(temp, path)
+        except httpx.HTTPError as err:
+            raise FetchError(f"Couldn't download from {host}: {type(err).__name__}") from err
+        finally:
+            temp.unlink(missing_ok=True)
 
     async def aclose(self) -> None:
         """Close the connection pool."""

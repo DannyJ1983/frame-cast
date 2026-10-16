@@ -25,6 +25,22 @@
     return DAYS[date.getDay()] + " " + date.getDate() + " " + MONTHS[date.getMonth()];
   }
 
+  /** "Sat" for "2026-10-17" (a date with no time, so no time zone can shift it). */
+  function dayName(isoDate) {
+    var parts = String(isoDate || "").split("-");
+    if (parts.length !== 3) return "";
+    return DAYS[new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getDay()].slice(0, 3);
+  }
+
+  /** The small line under a train's destination: "Platform 5 · via Gatwick Airport". */
+  function trainDetail(service) {
+    var parts = [];
+    if (service.platform === "Bus") parts.push("Replacement bus");
+    else if (service.platform) parts.push("Platform " + service.platform);
+    if (service.via) parts.push(service.via);
+    return parts.join(" · ");
+  }
+
   /** "14°", or a dash when there's no number. */
   function tempText(value) {
     return typeof value === "number" && isFinite(value) ? Math.round(value) + "°" : "–";
@@ -88,6 +104,33 @@
     return "Traffic as usual" + miles;
   }
 
+  // Route badge colours: each bus number keeps the same colour.
+  var ROUTE_COLOURS = ["#e5534b", "#e9973d", "#d4b13f", "#46b37b", "#2fa9b8", "#4f8fe6", "#8c6fe0", "#d65fa3"];
+
+  /** A colour for a bus number's badge, the same every time. */
+  function routeColour(route) {
+    var text = String(route || "");
+    var hash = 0;
+    for (var i = 0; i < text.length; i++) hash = (hash * 31 + text.charCodeAt(i)) % 9973;
+    return ROUTE_COLOURS[hash % ROUTE_COLOURS.length];
+  }
+
+  /** When a bus leaves: "Due" or "5 min" for live times, the clock time for timetabled ones. */
+  function busWhen(row) {
+    if (row.live && typeof row.minutes === "number") {
+      return { text: row.minutes <= 0 ? "Due" : row.minutes + " min", live: true };
+    }
+    return { text: row.time, live: false };
+  }
+
+  /** A short note on a live bus that's off its timetable: "Due 10:10, 3 min late". */
+  function busDetail(row) {
+    if (!row.live || typeof row.late !== "number") return "";
+    if (row.late >= 2) return "Due " + row.time + ", " + row.late + " min late";
+    if (row.late <= -2) return "Due " + row.time + ", " + -row.late + " min early";
+    return "";
+  }
+
   /** Whether the snapshot's setup leaves the location unset, so the page should explain how to set it up. */
   function needsSetup(snapshot) {
     return !(snapshot && snapshot.setup && snapshot.setup.weather);
@@ -97,10 +140,15 @@
     clockText: clockText,
     dateText: dateText,
     tempText: tempText,
+    dayName: dayName,
+    trainDetail: trainDetail,
     ago: ago,
     kickoffText: kickoffText,
     matchParts: matchParts,
     trafficText: trafficText,
     needsSetup: needsSetup,
+    routeColour: routeColour,
+    busWhen: busWhen,
+    busDetail: busDetail,
   };
 });

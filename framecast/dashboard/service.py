@@ -15,14 +15,15 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable
 
-from . import news, places, sport, traffic, trains, weather
+from . import buses, news, places, sport, traffic, trains, weather
 from .fetch import Fetcher, FetchError
 from .settings import DashboardError, DashboardSettings, DashboardStore
 
 log = logging.getLogger(__name__)
 
-CARDS = ("weather", "trains", "traffic", "news", "sport")
-REFRESH_SECONDS = {"weather": 900.0, "trains": 60.0, "traffic": 300.0, "news": 600.0, "sport": 600.0}
+CARDS = ("weather", "trains", "buses", "traffic", "news", "sport")
+REFRESH_SECONDS = {"weather": 900.0, "trains": 60.0, "buses": 30.0, "traffic": 300.0, "news": 600.0, "sport": 600.0}
+PREPARING_REFRESH = 15.0  # check back soon while the bus timetable is being got ready
 SPORT_LIVE_REFRESH = 60.0  # Scores update every minute while a match is on.
 RETRY_SECONDS = 60.0  # How soon a card that failed is tried again.
 FIRST_LOAD_WAIT = 8.0  # How long the page waits for a card it has never had.
@@ -30,6 +31,7 @@ CARD_TIMEOUT = 20.0
 FAILED = {
     "weather": "Couldn't get the weather just now.",
     "trains": "Couldn't get the train times just now.",
+    "buses": "Couldn't get the bus times just now.",
     "traffic": "Couldn't get the traffic just now.",
     "news": "Couldn't get the headlines just now.",
     "sport": "Couldn't get the scores just now.",
@@ -70,6 +72,7 @@ class DashboardService:
         self.fetcher = fetcher or Fetcher()
         self._clock = clock
         self._now = now
+        self.buses = buses.BusTimes(store.folder, self.fetcher, now)
         self._cards: dict[str, Card] = {}
         self._generation = 0
 
@@ -86,6 +89,8 @@ class DashboardService:
         for name in self.enabled():
             card = self._cards.setdefault(name, Card())
             due = card.fetched is None or self._clock() - card.fetched >= card.refresh
+            if name == "buses" and isinstance(card.data, dict) and card.data.get("preparing") and not self.buses.busy:
+                due = True  # the timetable has just finished getting ready
             if due and card.task is None:
                 card.task = asyncio.create_task(self._refresh(name, card, self._generation))
             if card.data is None and card.error is None and card.task is not None:
@@ -134,6 +139,8 @@ class DashboardService:
     def _refresh_after(name: str, data: Any) -> float:
         if name == "sport" and any(m["state"] == "in" for m in data.get("matches", [])):
             return SPORT_LIVE_REFRESH
+        if name == "buses" and data.get("preparing"):
+            return PREPARING_REFRESH
         return REFRESH_SECONDS[name]
 
     async def _load(self, name: str) -> Any:
@@ -145,6 +152,8 @@ class DashboardService:
         if name == "trains":
             url, params, headers = trains.departures_request(settings.station, settings.station_to, settings.rail_key)
             return trains.parse_departures(await self._keyed_json(name, url, params, headers))
+        if name == "buses":
+            return await self.buses.departures(settings)
         if name == "traffic":
             assert settings.latitude is not None and settings.longitude is not None
             assert settings.traffic_to_latitude is not None and settings.traffic_to_longitude is not None
@@ -205,6 +214,7 @@ class DashboardService:
         return {
             "news": [{"id": key, "name": name} for key, (name, _) in news.NEWS_FEEDS.items()],
             "leagues": [{"id": key, "name": name} for key, (_, name) in sport.LEAGUES.items()],
+            "bus_regions": [{"id": key, "name": name} for key, (name, _, _) in buses.REGIONS.items()],
         }
 
     async def find_place(self, text: str) -> places.Place:
@@ -245,9 +255,18 @@ class DashboardService:
                 found = await self.find_place(text)
                 new.traffic_to, new.traffic_to_name = text, found.name
                 new.traffic_to_latitude, new.traffic_to_longitude = found.latitude, found.longitude
+        if "bus_stops" in data:
+            new.bus_stops = " ".join(buses.stop_codes(_clean(data["bus_stops"], 100)))
+        if "bus_lines" in data:
+            new.bus_lines = ", ".join(buses.line_names(_clean(data["bus_lines"], 100)))
+        if "bus_region" in data:
+            region = str(data["bus_region"])
+            if region != "auto" and region not in buses.REGIONS:
+                raise DashboardError("Pick a region from the list.")
+            new.bus_region = region
         if "traffic_label" in data:
             new.traffic_label = _clean(data["traffic_label"], 30)
-        for name in ("rail_key", "traffic_key"):
+        for name in ("rail_key", "traffic_key", "bus_key"):
             if name in data and data[name] is not None:
                 setattr(new, name, str(data[name]).strip()[:200])
         if "news" in data:

@@ -72,7 +72,7 @@
           <button type="button" id="dash-show" class="secondary small">Show on TV</button>
         </div>
       </div>
-      <p class="muted">The TV opens on a dashboard with the time, weather, trains, traffic, headlines and a sports ticker. Set it up here.</p>
+      <p class="muted">The TV opens on a dashboard with the time, weather, trains, buses, traffic, headlines and a sports ticker. Set it up here.</p>
       <p id="dash-message" class="message" role="status" aria-live="polite"></p>
       <details id="dash-details">
         <summary>Dashboard settings</summary>
@@ -97,6 +97,19 @@
           <label for="dash-rail-key">Train data key</label>
           <input id="dash-rail-key" type="password" autocomplete="off" spellcheck="false">
           <p class="muted small-print">Free from the Rail Data Marketplace (raildata.org.uk). Sign up, subscribe to <b>Live Departure Board</b>, and copy the consumer key from its Specification tab. <button type="button" class="link-button inline" id="dash-rail-forget" hidden>Remove the saved key</button></p>
+
+          <h4>Buses</h4>
+          <label for="dash-bus-stops">Your bus stops</label>
+          <input id="dash-bus-stops" placeholder="149000006934" maxlength="100" spellcheck="false">
+          <p class="muted small-print">Find your stop on buses.co.uk. The number at the end of its page's address is the code, as in buses.co.uk/stops/<b>149000006934</b>. Add up to three, separated by commas, say for both directions.</p>
+          <label for="dash-bus-lines">Only these buses (optional)</label>
+          <input id="dash-bus-lines" placeholder="7, 14, 49" maxlength="100">
+          <label for="dash-bus-key">Live bus data key (optional)</label>
+          <input id="dash-bus-key" type="password" autocomplete="off" spellcheck="false">
+          <p class="muted small-print">Without a key you'll see timetabled times. For live times, register for a free key with the Bus Open Data Service at data.bus-data.dft.gov.uk; it's shown in your account there. <button type="button" class="link-button inline" id="dash-bus-forget" hidden>Remove the saved key</button></p>
+          <label for="dash-bus-region">Timetable region</label>
+          <select id="dash-bus-region"></select>
+          <p class="muted small-print">The first time, the Pi downloads your region's timetable, which takes a few minutes. It's refreshed weekly.</p>
 
           <h4>Traffic</h4>
           <div class="row">

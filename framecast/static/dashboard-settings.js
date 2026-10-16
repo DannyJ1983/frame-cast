@@ -27,11 +27,19 @@
     $("dash-traffic-found").textContent = settings.traffic_to_name ? `Found: ${settings.traffic_to_name}` : "";
     keyField("dash-rail-key", "dash-rail-forget", settings.has_rail_key);
     keyField("dash-traffic-key", "dash-traffic-forget", settings.has_traffic_key);
+    keyField("dash-bus-key", "dash-bus-forget", settings.has_bus_key);
+    $("dash-bus-stops").value = settings.bus_stops;
+    $("dash-bus-lines").value = settings.bus_lines;
     if (options) {
       const select = $("dash-news");
       select.textContent = "";
       for (const feed of [...options.news, { id: "custom", name: "Another feed…" }]) {
         select.append(new Option(feed.name, feed.id));
+      }
+      const regions = $("dash-bus-region");
+      regions.textContent = "";
+      for (const region of [{ id: "auto", name: "Work it out from my postcode" }, ...options.bus_regions]) {
+        regions.append(new Option(region.name, region.id));
       }
       const leagues = $("dash-leagues");
       leagues.textContent = "";
@@ -44,6 +52,7 @@
         leagues.append(label);
       }
     }
+    $("dash-bus-region").value = settings.bus_region;
     $("dash-news").value = settings.news;
     $("dash-news-url").value = settings.news_url;
     $("dash-news-url").hidden = settings.news !== "custom";
@@ -71,6 +80,9 @@
       place: $("dash-place").value,
       station: $("dash-station").value,
       station_to: $("dash-station-to").value,
+      bus_stops: $("dash-bus-stops").value,
+      bus_lines: $("dash-bus-lines").value,
+      bus_region: $("dash-bus-region").value,
       traffic_to: $("dash-traffic-to").value,
       traffic_label: $("dash-traffic-label").value,
       news: $("dash-news").value,
@@ -81,6 +93,7 @@
     // An empty key box means "keep the saved key".
     if ($("dash-rail-key").value.trim()) body.rail_key = $("dash-rail-key").value;
     if ($("dash-traffic-key").value.trim()) body.traffic_key = $("dash-traffic-key").value;
+    if ($("dash-bus-key").value.trim()) body.bus_key = $("dash-bus-key").value;
     $("dash-save").disabled = true;
     say("Saving…");
     try {
@@ -119,5 +132,6 @@
   });
   $("dash-rail-forget").addEventListener("click", () => put({ rail_key: "" }));
   $("dash-traffic-forget").addEventListener("click", () => put({ traffic_key: "" }));
+  $("dash-bus-forget").addEventListener("click", () => put({ bus_key: "" }));
   load();
 })();

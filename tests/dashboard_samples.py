@@ -29,13 +29,13 @@ def open_meteo() -> dict[str, Any]:
             "is_day": [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         },
         "daily": {
-            "time": ["2026-10-16", "2026-10-17"],
-            "weather_code": [61, 3],
-            "temperature_2m_max": [14.4, 12.1],
-            "temperature_2m_min": [7.6, 6.2],
-            "precipitation_probability_max": [80, 30],
-            "sunrise": ["2026-10-16T07:31", "2026-10-17T07:33"],
-            "sunset": ["2026-10-16T18:06", "2026-10-17T18:04"],
+            "time": ["2026-10-16", "2026-10-17", "2026-10-18", "2026-10-19"],
+            "weather_code": [61, 3, 80, 1],
+            "temperature_2m_max": [14.4, 12.1, 13.0, 15.2],
+            "temperature_2m_min": [7.6, 6.2, 8.1, 9.0],
+            "precipitation_probability_max": [80, 30, 65, 5],
+            "sunrise": ["2026-10-16T07:31", "2026-10-17T07:33", "2026-10-18T07:34", "2026-10-19T07:36"],
+            "sunset": ["2026-10-16T18:06", "2026-10-17T18:04", "2026-10-18T18:02", "2026-10-19T18:00"],
         },
     }
 
@@ -168,6 +168,11 @@ class FakeFetcher:
     async def text(self, url: str, params: Any = None, headers: Any = None) -> str:
         return self._answer(url, params, headers)
 
+    async def download(self, url: str, path: Any, max_bytes: int) -> None:
+        data = self._answer(url, None, None)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+
     async def aclose(self) -> None:
         pass
 
@@ -184,4 +189,161 @@ def working_routes() -> dict[str, Any]:
         "https://feeds.bbci.co.uk/news/": BBC_RSS,
         "https://feeds.bbci.co.uk/sport/": BBC_RSS,
         "https://site.api.espn.com/": lambda: espn_scoreboard(datetime.now(timezone.utc)),
+        "https://data.bus-data.dft.gov.uk/timetable/": lambda: gtfs_zip(all_day_trips()),
+        "https://data.bus-data.dft.gov.uk/api/v1/datafeed/":
+            lambda: live_buses_for(all_day_trips(), datetime.now(timezone.utc)),
     }
+
+
+# Buses ----------------------------------------------------------------------------------------
+# A small GTFS timetable shaped like the Bus Open Data Service's (stop ids are ATCO codes, and
+# agency.txt carries each operator's national code in agency_noc), and SIRI-VM answers to match.
+
+import csv as _csv
+import io as _io
+import zipfile as _zipfile
+from zoneinfo import ZoneInfo as _ZoneInfo
+
+UK = _ZoneInfo("Europe/London")
+BUS_STOPS = [
+    # stop_id, stop_code, name, lat, lon
+    ("149000000001", "brimaaa", "Hove Town Hall", 50.8300, -0.1500),
+    ("149000000002", "brimaab", "Palmeira Square", 50.8300, -0.1450),
+    ("149000006934", "brimgpd", "Churchill Square (Stop D)", 50.8300, -0.1400),
+    ("149000000004", "brimaad", "Old Steine", 50.8300, -0.1350),
+    ("149000000005", "brimaae", "Brighton Marina", 50.8300, -0.1300),
+]
+TARGET = "149000006934"
+
+
+def _hms(total_seconds: int) -> str:
+    return f"{total_seconds // 3600:02d}:{total_seconds % 3600 // 60:02d}:{total_seconds % 60:02d}"
+
+
+def bus_trip(trip_id: str, route: str, start: str, service: str = "ALL", headsign: str = "",
+             stops: list[str] | None = None, gap_minutes: int = 5) -> dict[str, Any]:
+    """A journey leaving its first stop at ``start`` ("HH:MM", may pass 24:00), calling every ``gap_minutes``."""
+    hours, minutes = (int(x) for x in start.split(":"))
+    first = hours * 3600 + minutes * 60
+    stop_ids = stops or [s[0] for s in BUS_STOPS]
+    return {"id": trip_id, "route": route, "service": service, "headsign": headsign,
+            "times": [(stop, first + i * gap_minutes * 60) for i, stop in enumerate(stop_ids)]}
+
+
+def gtfs_zip(trips: list[dict[str, Any]], exceptions: list[tuple[str, str, int]] = (),
+             trip_id_first: bool = True) -> bytes:
+    """Build a GTFS file. ``exceptions`` are (service_id, YYYYMMDD, 1 added / 2 removed)."""
+    def table(header: list[str], rows: list[list[Any]]) -> str:
+        out = _io.StringIO()
+        writer = _csv.writer(out, lineterminator="\n")
+        writer.writerow(header)
+        writer.writerows(rows)
+        return out.getvalue()
+
+    stop_time_header = ["trip_id", "arrival_time", "departure_time", "stop_id", "stop_sequence", "timepoint"]
+    if not trip_id_first:
+        stop_time_header = ["stop_sequence", "arrival_time", "departure_time", "stop_id", "trip_id", "timepoint"]
+    stop_rows = []
+    for trip in trips:
+        for sequence, (stop, when) in enumerate(trip["times"], 1):
+            values = {"trip_id": trip["id"], "arrival_time": _hms(when), "departure_time": _hms(when),
+                      "stop_id": stop, "stop_sequence": sequence * 10, "timepoint": 1}
+            stop_rows.append([values[h] for h in stop_time_header])
+    stop_rows.reverse()  # the order in the file mustn't matter
+    routes = sorted({t["route"] for t in trips})
+    services = sorted({t["service"] for t in trips} - {"EXTRA"})
+    files = {
+        "agency.txt": table(["agency_id", "agency_name", "agency_url", "agency_timezone", "agency_noc"],
+                            [["OP1", "Brighton & Hove Buses", "https://www.buses.co.uk", "Europe/London", "BHBC"]]),
+        "routes.txt": table(["route_id", "agency_id", "route_short_name", "route_long_name", "route_type"],
+                            [[f"R{r}", "OP1", r, "", 3] for r in routes]),
+        "trips.txt": table(["route_id", "service_id", "trip_id", "trip_headsign", "vehicle_journey_code"],
+                           [[f"R{t['route']}", t["service"], t["id"], t["headsign"], "VJ" + t["id"]] for t in trips]),
+        "stops.txt": table(["stop_id", "stop_code", "stop_name", "stop_lat", "stop_lon", "wheelchair_boarding"],
+                           [list(s) + [0] for s in BUS_STOPS]),
+        "stop_times.txt": table(stop_time_header, stop_rows),
+        "calendar.txt": table(["service_id", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
+                               "sunday", "start_date", "end_date"],
+                              [[s, 1, 1, 1, 1, 1, 1, 1, "20260101", "20271231"] for s in services]),
+        "calendar_dates.txt": table(["service_id", "date", "exception_type"], [list(e) for e in exceptions]),
+    }
+    buffer = _io.BytesIO()
+    with _zipfile.ZipFile(buffer, "w", _zipfile.ZIP_DEFLATED) as zf:
+        for name, text in files.items():
+            zf.writestr(name, "﻿" + text if name == "stops.txt" else text)
+    return buffer.getvalue()
+
+
+def all_day_trips() -> list[dict[str, Any]]:
+    """Buses all day, so the sample shows departures whatever the time: the 7 every 10 minutes,
+    the 14 every 15 and the 49 every 20."""
+    trips = []
+    for route, every, offset, headsign in (("7", 10, 0, "Brighton Marina"), ("14", 15, 3, "Peacehaven"),
+                                           ("49", 20, 7, "East Moulsecoomb")):
+        for start in range(offset, 24 * 60 + 30, every):
+            trips.append(bus_trip(f"{route}-{start}", route, f"{start // 60}:{start % 60:02d}", headsign=headsign))
+    return trips
+
+
+def siri_vehicle(line: str, origin: str, destination: str, origin_time: datetime, destination_time: datetime,
+                 recorded: datetime, lat: float | None, lon: float | None, operator: str = "BHBC") -> str:
+    location = "" if lat is None else (
+        f"<VehicleLocation><Longitude>{lon}</Longitude><Latitude>{lat}</Latitude></VehicleLocation>")
+    return f"""
+  <VehicleActivity>
+    <RecordedAtTime>{recorded.isoformat()}</RecordedAtTime>
+    <ItemIdentifier>{line}-{origin_time:%H%M}</ItemIdentifier>
+    <MonitoredVehicleJourney>
+      <LineRef>{line}</LineRef>
+      <DirectionRef>outbound</DirectionRef>
+      <FramedVehicleJourneyRef><DataFrameRef>{origin_time:%Y-%m-%d}</DataFrameRef><DatedVehicleJourneyRef>1</DatedVehicleJourneyRef></FramedVehicleJourneyRef>
+      <PublishedLineName>{line}</PublishedLineName>
+      <OperatorRef>{operator}</OperatorRef>
+      <OriginRef>{origin}</OriginRef>
+      <DestinationRef>{destination}</DestinationRef>
+      <OriginAimedDepartureTime>{origin_time.isoformat()}</OriginAimedDepartureTime>
+      <DestinationAimedArrivalTime>{destination_time.isoformat()}</DestinationAimedArrivalTime>
+      {location}
+      <Bearing>90.0</Bearing>
+      <VehicleRef>{operator}-{line}{origin_time:%H%M}</VehicleRef>
+    </MonitoredVehicleJourney>
+  </VehicleActivity>"""
+
+
+def siri(activities: list[str], when: datetime) -> str:
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<Siri xmlns="http://www.siri.org.uk/siri" version="2.0">
+ <ServiceDelivery>
+  <ResponseTimestamp>{when.isoformat()}</ResponseTimestamp>
+  <ProducerRef>DepartmentForTransport</ProducerRef>
+  <VehicleMonitoringDelivery>
+   <ResponseTimestamp>{when.isoformat()}</ResponseTimestamp>
+   {''.join(activities)}
+  </VehicleMonitoringDelivery>
+ </ServiceDelivery>
+</Siri>"""
+
+
+def live_buses_for(trips: list[dict[str, Any]], now: datetime, late_minutes: float = 2.0) -> str:
+    """A live feed where every bus due at the target stop in the next quarter of an hour is running late."""
+    places = {s[0]: (s[3], s[4]) for s in BUS_STOPS}
+    local = now.astimezone(UK)
+    midnight = datetime.combine(local.date(), datetime.min.time(), tzinfo=UK)
+    activities = []
+    for trip in trips:
+        times = trip["times"]
+        target = next(when for stop, when in times if stop == TARGET)
+        due = midnight + timedelta(seconds=target)
+        if not timedelta(minutes=0) < due - now < timedelta(minutes=15):
+            continue
+        should_be = (now - timedelta(minutes=late_minutes) - midnight).total_seconds()
+        for (stop_a, at_a), (stop_b, at_b) in zip(times, times[1:]):
+            if at_a <= should_be <= at_b:
+                fraction = (should_be - at_a) / (at_b - at_a)
+                lat = places[stop_a][0] + fraction * (places[stop_b][0] - places[stop_a][0])
+                lon = places[stop_a][1] + fraction * (places[stop_b][1] - places[stop_a][1])
+                activities.append(siri_vehicle(trip["route"], times[0][0], times[-1][0],
+                                               midnight + timedelta(seconds=times[0][1]),
+                                               midnight + timedelta(seconds=times[-1][1]), now, lat, lon))
+                break
+    return siri(activities, now)

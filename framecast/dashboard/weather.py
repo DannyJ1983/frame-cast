@@ -50,7 +50,7 @@ def forecast_params(latitude: float, longitude: float) -> dict[str, Any]:
         "hourly": "temperature_2m,weather_code,precipitation_probability,is_day",
         "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset",
         "timezone": "auto",
-        "forecast_days": 2,
+        "forecast_days": 4,
         "forecast_hours": HOURS_AHEAD + 1,
         "wind_speed_unit": "mph",
     }
@@ -82,6 +82,7 @@ def _day(daily: dict[str, Any], index: int) -> dict[str, Any] | None:
         return None
     text, icon = describe(_at(daily.get("weather_code"), index))
     return {
+        "date": str(_at(daily.get("time"), index)),
         "text": text,
         "icon": icon,
         "high": _number(_at(daily.get("temperature_2m_max"), index)),
@@ -121,5 +122,6 @@ def parse_forecast(data: dict[str, Any]) -> dict[str, Any]:
         },
         "today": _day(daily, 0),
         "tomorrow": _day(daily, 1),
+        "days": [day for day in (_day(daily, i) for i in (1, 2, 3)) if day],
         "hours": hours,
     }

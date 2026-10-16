@@ -64,6 +64,73 @@
       <ul id="channels"></ul>
     </section>
 
+    <section id="dashboard-section">
+      <div class="section-head">
+        <h3>Dashboard</h3>
+        <div>
+          <a class="small-link" href="/dashboard/" target="_blank" rel="noopener">Open here</a>
+          <button type="button" id="dash-show" class="secondary small">Show on TV</button>
+        </div>
+      </div>
+      <p class="muted">The TV opens on a dashboard with the time, weather, trains, traffic, headlines and a sports ticker. Set it up here.</p>
+      <p id="dash-message" class="message" role="status" aria-live="polite"></p>
+      <details id="dash-details">
+        <summary>Dashboard settings</summary>
+        <form id="dash-form" autocomplete="off">
+          <h4>Weather</h4>
+          <label for="dash-place">Your postcode or town</label>
+          <input id="dash-place" placeholder="LS1 4AP" maxlength="80">
+          <p id="dash-place-found" class="muted small-print"></p>
+
+          <h4>Trains</h4>
+          <div class="row">
+            <div class="field">
+              <label for="dash-station">Station code</label>
+              <input id="dash-station" placeholder="LDS" maxlength="3" autocapitalize="characters">
+            </div>
+            <div class="field">
+              <label for="dash-station-to">Only trains to (optional)</label>
+              <input id="dash-station-to" placeholder="KGX" maxlength="3" autocapitalize="characters">
+            </div>
+          </div>
+          <p class="muted small-print">Every station has a three-letter code: Leeds is LDS, London King's Cross is KGX. Search for your station on nationalrail.co.uk to find its code.</p>
+          <label for="dash-rail-key">Train data key</label>
+          <input id="dash-rail-key" type="password" autocomplete="off" spellcheck="false">
+          <p class="muted small-print">Free from the Rail Data Marketplace (raildata.org.uk). Sign up, subscribe to <b>Live Departure Board</b>, and copy the consumer key from its Specification tab. <button type="button" class="link-button inline" id="dash-rail-forget" hidden>Remove the saved key</button></p>
+
+          <h4>Traffic</h4>
+          <div class="row">
+            <div class="field">
+              <label for="dash-traffic-to">Drive to (postcode or town)</label>
+              <input id="dash-traffic-to" placeholder="WF1 2HQ" maxlength="80">
+            </div>
+            <div class="field narrow">
+              <label for="dash-traffic-label">Called</label>
+              <input id="dash-traffic-label" placeholder="Work" maxlength="30">
+            </div>
+          </div>
+          <p id="dash-traffic-found" class="muted small-print"></p>
+          <label for="dash-traffic-key">TomTom key</label>
+          <input id="dash-traffic-key" type="password" autocomplete="off" spellcheck="false">
+          <p class="muted small-print">The drive starts from your postcode above. Get a free key at developer.tomtom.com. <button type="button" class="link-button inline" id="dash-traffic-forget" hidden>Remove the saved key</button></p>
+
+          <h4>Headlines</h4>
+          <label for="dash-news">News from</label>
+          <select id="dash-news"></select>
+          <input id="dash-news-url" type="url" inputmode="url" placeholder="Address of an RSS feed" hidden>
+
+          <h4>Sport</h4>
+          <div id="dash-leagues" class="checks"></div>
+          <label for="dash-teams">Teams to pick out (optional, separated by commas)</label>
+          <input id="dash-teams" placeholder="Leeds, Arsenal" maxlength="200">
+
+          <div class="form-buttons">
+            <button type="submit" id="dash-save">Save</button>
+          </div>
+        </form>
+      </details>
+    </section>
+
     <section id="recent-section" hidden>
       <h3>Recent</h3>
       <ul id="recent"></ul>
@@ -91,5 +158,6 @@
     </details>
   </main>
   <script src="/static/phone.js"></script>
+  <script src="/static/dashboard-settings.js"></script>
 </body>
 </html>

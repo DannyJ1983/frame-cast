@@ -35,6 +35,9 @@ body.mode-playing { background: transparent; }
   padding: 0 200px;
 }
 
+body.mode-dashboard #dashboard { display: block; padding: 0; }
+#dashboard-frame { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; border: 0; background: #0b0f17; }
+
 body.mode-idle #idle,
 body.mode-loading #loading,
 body.mode-error #error,
@@ -132,4 +135,5 @@ body.mode-loading.osd-visible .osd { display: block; }
 .tile.focused .tile-logo { border-color: #6ea0ff; transform: scale(1.06); }
 .tile.focused .tile-name { color: #ffffff; }
 .tile.playing .tile-name::before { content: "\25B6  "; color: #6ea0ff; }
-.tile.settings .tile-logo { font-size: 30px; font-weight: 600; color: #aeb5bf; }
+.tile.settings .tile-logo,
+.tile.dashboard .tile-logo { font-size: 30px; font-weight: 600; color: #aeb5bf; }

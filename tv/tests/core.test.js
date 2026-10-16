@@ -45,7 +45,11 @@ test("keyAction per screen", () => {
   assert.equal(core.keyAction("idle", "Enter"), "activate");
   assert.equal(core.keyAction("idle", "Right"), "move-right");
   assert.equal(core.keyAction("idle", "Up"), "move-up");
-  assert.equal(core.keyAction("idle", "Return"), "exit");
+  assert.equal(core.keyAction("idle", "Return"), "home");
+  assert.equal(core.keyAction("dashboard", "Return"), "exit");
+  assert.equal(core.keyAction("dashboard", "Enter"), "open-grid");
+  assert.equal(core.keyAction("dashboard", "Down"), "open-grid");
+  assert.equal(core.keyAction("dashboard", "MediaPlay"), "");
   assert.equal(core.keyAction("playing", "ChannelUp"), "next-channel");
   assert.equal(core.keyAction("loading", "ChannelDown"), "prev-channel");
   assert.equal(core.keyAction("playing", "Enter"), "toggle");

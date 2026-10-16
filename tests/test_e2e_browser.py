@@ -35,9 +35,16 @@ def tv_page(live_server):
         page.on("pageerror", lambda e: errors.append(str(e)))
         page.goto(f"{live_server.url}/tv/")
         page.wait_for_function("document.getElementById('hub-status').textContent.startsWith('Ready')")
+        page.wait_for_function("document.body.classList.contains('mode-dashboard')")  # the app opens on it
         yield page, live_server
         browser.close()
         assert errors == [], errors
+
+
+def to_grid(page):
+    """From the dashboard, OK opens the channel grid."""
+    page.keyboard.press("Enter")
+    page.wait_for_function("document.body.classList.contains('mode-idle')")
 
 
 def calls(page, name):
@@ -145,7 +152,9 @@ def test_link_shared_while_tv_closed_plays_when_opened(live_server):
 
 def test_settings_screen_saves_address(tv_page):
     page, server = tv_page
-    page.keyboard.press("Enter")  # idle: OK opens settings
+    to_grid(page)
+    page.keyboard.press("ArrowRight")  # past the Dashboard tile to Server address
+    page.keyboard.press("Enter")
     page.wait_for_function("document.body.classList.contains('mode-settings')")
     page.fill("#hub-input", server.url.replace("http://", ""))
     page.keyboard.press("ArrowDown")
@@ -202,12 +211,13 @@ def test_channels_show_on_tv_and_play_with_ok(tv_page):
     news = add_channel(server, "News 24", "news")
     add_channel(server, "Sport", "sport")
     httpx.put(f"{server.url}/api/channels/{news['id']}/logo", content=PNG, timeout=5)
-    page.wait_for_function("document.querySelectorAll('#grid .tile').length === 3")
-    assert tile_names(page) == ["News 24", "Sport", "Server address"]
+    page.wait_for_function("document.querySelectorAll('#grid .tile').length === 4")
+    assert tile_names(page) == ["News 24", "Sport", "Dashboard", "Server address"]
     page.wait_for_function("document.querySelector('#grid .tile img') !== null")
     assert "/logo?v=1" in page.get_attribute("#grid .tile img", "src")
     assert page.is_hidden("#grid-empty")
 
+    to_grid(page)
     page.keyboard.press("ArrowRight")
     page.wait_for_function("document.querySelector('#grid .tile.focused .tile-name').textContent === 'Sport'")
     page.keyboard.press("Enter")
@@ -229,7 +239,8 @@ def test_channels_show_on_tv_and_play_with_ok(tv_page):
 def test_channel_that_fails_to_resolve_shows_error(tv_page):
     page, server = tv_page
     httpx.post(f"{server.url}/api/channels", json={"name": "Gone", "url": "https://site.example/novideo"}, timeout=5)
-    page.wait_for_function("document.querySelectorAll('#grid .tile').length === 2")
+    page.wait_for_function("document.querySelectorAll('#grid .tile').length === 3")
+    to_grid(page)
     page.keyboard.press("Enter")
     page.wait_for_function("document.body.classList.contains('mode-error')")
     assert "Couldn't find a video" in page.text_content("#error-message")
@@ -240,8 +251,10 @@ def test_channel_that_fails_to_resolve_shows_error(tv_page):
 def test_grid_reaches_settings_tile(tv_page):
     page, server = tv_page
     add_channel(server, "One", "one")
-    page.wait_for_function("document.querySelectorAll('#grid .tile').length === 2")
-    page.keyboard.press("ArrowRight")
+    page.wait_for_function("document.querySelectorAll('#grid .tile').length === 3")
+    to_grid(page)
+    page.keyboard.press("ArrowRight")  # Dashboard
+    page.keyboard.press("ArrowRight")  # Server address
     page.keyboard.press("Enter")
     page.wait_for_function("document.body.classList.contains('mode-settings')")
 
@@ -267,3 +280,75 @@ def test_phone_page_saves_channel_with_logo_and_tv_shows_it(tv_page, tmp_path):
     # Play it from the phone.
     phone.click("#channels li button:has-text('Play')")
     page.wait_for_function("document.getElementById('osd-title').textContent === 'Golazo'")
+
+
+# Dashboard --------------------------------------------------------------------
+
+
+def test_tv_opens_on_the_dashboard(tv_page):
+    page, server = tv_page
+    assert page.get_attribute("#dashboard-frame", "src") == f"{server.url}/dashboard/"
+    frame = page.frame_locator("#dashboard-frame")
+    frame.locator("#news .headline").first.wait_for()
+    assert frame.locator("#news-source").text_content() == "BBC News"
+    assert frame.locator("#setup").is_visible()  # no location yet
+    frame.locator("#ticker-track .tick").first.wait_for()
+    assert "Arsenal" in frame.locator("#ticker-track").text_content()
+
+    # OK goes to the channels; Back comes home again.
+    to_grid(page)
+    assert page.get_attribute("#dashboard-frame", "src") == "about:blank"
+    page.keyboard.press("Escape")
+    page.wait_for_function("document.body.classList.contains('mode-dashboard')")
+    frame.locator("#news .headline").first.wait_for()
+
+
+def test_dashboard_tile_and_keys_pressed_inside_the_page(tv_page):
+    page, server = tv_page
+    to_grid(page)
+    page.keyboard.press("Enter")  # no channels: the first tile is Dashboard
+    page.wait_for_function("document.body.classList.contains('mode-dashboard')")
+    # If the page itself has focus, it hands keys to the app.
+    page.frame_locator("#dashboard-frame").locator("#time").press("ArrowDown")
+    page.wait_for_function("document.body.classList.contains('mode-idle')")
+
+
+def test_phone_shows_the_dashboard_over_a_video(tv_page):
+    page, server = tv_page
+    send(server, "https://site.example/video/9")
+    page.wait_for_function("document.body.classList.contains('mode-playing')")
+    reply = httpx.post(f"{server.url}/api/dashboard/show", timeout=5)
+    assert reply.status_code == 200
+    page.wait_for_function("document.body.classList.contains('mode-dashboard')")
+    assert page.evaluate("window.FrameCast.player.state") == "stopped"
+
+
+def test_dashboard_settings_from_the_phone(tv_page):
+    page, server = tv_page
+    phone = page.context.browser.new_page()
+    phone.goto(server.url)
+    phone.click("#dash-details summary")
+    phone.wait_for_function("document.querySelectorAll('#dash-leagues input').length > 5")
+    assert phone.is_checked("#dash-leagues input[value='eng.1']")
+    phone.fill("#dash-place", "LS1 4AP")
+    phone.fill("#dash-station", "LDS")
+    phone.fill("#dash-rail-key", "secret-key")
+    phone.check("#dash-leagues input[value='eng.2']")
+    phone.click("#dash-save")
+    phone.wait_for_function("document.getElementById('dash-message').textContent.startsWith('Saved')")
+    assert phone.text_content("#dash-place-found") == "Found: Leeds"
+    assert phone.input_value("#dash-rail-key") == ""
+    assert "Saved" in phone.get_attribute("#dash-rail-key", "placeholder")
+    settings = httpx.get(f"{server.url}/api/dashboard/settings", timeout=5).json()["settings"]
+    assert settings["leagues"] == ["eng.1", "eng.2"] and settings["has_rail_key"]
+
+    # The TV's dashboard picks the changes up on its next refresh.
+    frame = page.frame_locator("#dashboard-frame")
+    page.evaluate("document.getElementById('dashboard-frame').contentWindow.Dashboard.load()")
+    frame.locator("#departures tr").first.wait_for()
+    assert frame.locator("#trains-station").text_content() == "Leeds"
+    assert frame.locator("#now-temp").text_content() == "14°"
+    assert frame.locator("#setup").is_hidden()
+
+    phone.click("#dash-show")
+    phone.wait_for_function("document.getElementById('dash-message').textContent.includes('Showing')")

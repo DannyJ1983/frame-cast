@@ -1,0 +1,181 @@
+/* The dashboard, sized for the TV's 1920x1080 page and scaling down to laptops and phones.
+   It also runs on the 2019 TV's Chromium 63: no `gap`, `inset`, clamp(), min() or max(). */
+:root {
+  --bg: #0b0f17;
+  --bg-2: #121a29;
+  --card: rgba(255, 255, 255, 0.045);
+  --card-line: rgba(255, 255, 255, 0.08);
+  --text: #eef2f7;
+  --muted: #93a0b2;
+  --faint: #5f6b7c;
+  --accent: #7aa7ff;
+  --good: #57d08c;
+  --warn: #f5bd4f;
+  --bad: #ff7d6e;
+  --rain: #6fb6ff;
+}
+
+[hidden] { display: none !important; }
+
+html { font-size: 1.0417vw; } /* 20px on a 1920-pixel-wide TV */
+html, body { margin: 0; }
+body {
+  background: radial-gradient(ellipse at top left, var(--bg-2), var(--bg) 70%);
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: "SamsungOne", "Samsung Sans", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  padding: 2rem 2.6rem 0;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Header: the clock, and the weather now -------------------------------------------- */
+.top { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 1.4rem; }
+.time { font-size: 6rem; font-weight: 700; line-height: 0.95; letter-spacing: -0.15rem; }
+.date { font-size: 1.7rem; color: var(--muted); margin-top: 0.5rem; }
+.now { display: flex; align-items: center; }
+.now-icon { width: 6rem; height: 6rem; margin-right: 1.2rem; }
+.now-icon svg { width: 100%; height: 100%; }
+.now-temp { font-size: 4.6rem; font-weight: 700; line-height: 1; }
+.now-desc { font-size: 1.4rem; color: var(--text); margin-top: 0.3rem; }
+.now-place { font-size: 1.2rem; color: var(--muted); margin-top: 0.15rem; }
+.offline { margin: -0.6rem 0 1rem; color: var(--warn); font-size: 1.2rem; }
+
+/* Columns and cards -------------------------------------------------------------- */
+.columns { display: flex; align-items: stretch; }
+.column { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; margin-right: 1.4rem; }
+.column:last-child { margin-right: 0; }
+.column[data-column="middle"] { flex-grow: 1.15; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: 1.1rem;
+  padding: 1.2rem 1.4rem;
+  margin-bottom: 1.4rem;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.column .card:last-child { flex: 1 1 auto; }
+.card-title {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin: 0 0 1rem; font-size: 1.05rem; font-weight: 700; letter-spacing: 0.12rem;
+  text-transform: uppercase; color: var(--muted);
+}
+.card-sub { letter-spacing: 0; text-transform: none; font-weight: 600; color: var(--text); font-size: 1.2rem; }
+.card-note { margin: 0.8rem 0 0; color: var(--warn); font-size: 1.05rem; }
+.card-note:empty { display: none; }
+.empty { color: var(--muted); font-size: 1.3rem; }
+
+.setup-text { font-size: 1.4rem; line-height: 1.45; color: var(--text); margin: 0; }
+.setup-text b { color: var(--accent); }
+
+/* Weather card -------------------------------------------------------------------- */
+.today { display: flex; justify-content: space-between; align-items: flex-start; }
+.today-range { font-size: 2.4rem; font-weight: 700; white-space: nowrap; }
+.today-range .low { color: var(--muted); font-weight: 600; }
+.today-text { font-size: 1.3rem; color: var(--muted); margin-top: 0.2rem; }
+.today-facts { text-align: right; font-size: 1.15rem; color: var(--muted); line-height: 1.6; }
+.today-facts .rain { color: var(--rain); }
+.hours { display: flex; justify-content: space-between; margin-top: 1.3rem; }
+.hour { flex: 1 1 0; text-align: center; }
+.hour-time { font-size: 1.05rem; color: var(--muted); }
+.hour-icon { width: 2.8rem; height: 2.8rem; margin: 0.35rem auto; }
+.hour-icon svg { width: 100%; height: 100%; }
+.hour-temp { font-size: 1.35rem; font-weight: 700; }
+.hour-rain { font-size: 0.95rem; color: var(--rain); min-height: 1.2rem; }
+.tomorrow { margin: 1.1rem 0 0; font-size: 1.15rem; color: var(--muted); }
+.tomorrow b { color: var(--text); font-weight: 600; }
+
+/* Traffic card -------------------------------------------------------------------- */
+.drive { display: flex; flex-direction: column; }
+.drive-minutes { font-size: 3.6rem; font-weight: 700; line-height: 1; }
+.drive-minutes.ok { color: var(--good); }
+.drive-minutes.slow { color: var(--warn); }
+.drive-minutes.bad { color: var(--bad); }
+.drive-text { font-size: 1.3rem; color: var(--muted); margin-top: 0.5rem; }
+
+/* Trains card --------------------------------------------------------------------- */
+.departures { width: 100%; border-collapse: collapse; font-size: 1.4rem; }
+.departures td { padding: 0.55rem 0; border-bottom: 1px solid var(--card-line); vertical-align: top; }
+.departures tr:last-child td { border-bottom: 0; }
+.dep-time { width: 5.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.dep-dest { padding-right: 0.8rem !important; }
+.dep-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.dep-dest small { display: block; font-size: 1rem; color: var(--muted); margin-top: 0.15rem; }
+.dep-plat { width: 5.4rem; text-align: center; color: var(--muted); white-space: nowrap; }
+.dep-plat b { color: var(--text); }
+.dep-status { width: 8rem; text-align: right; font-weight: 600; white-space: nowrap; }
+.dep-status.ok { color: var(--good); }
+.dep-status.late { color: var(--warn); }
+.dep-status.cancelled { color: var(--bad); }
+tr.cancelled .dep-time, tr.cancelled .dep-dest { text-decoration: line-through; color: var(--faint); }
+.rail-message {
+  margin: 0.9rem 0 0; padding: 0.7rem 0.9rem; border-radius: 0.6rem;
+  background: rgba(245, 189, 79, 0.12); color: var(--warn); font-size: 1.05rem; line-height: 1.4;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+}
+
+/* News card ----------------------------------------------------------------------- */
+.headlines { list-style: none; margin: 0; padding: 0; }
+.headlines li { padding: 0.65rem 0; border-bottom: 1px solid var(--card-line); }
+.headlines li:first-child { padding-top: 0; }
+.headlines li:last-child { border-bottom: 0; }
+.headline {
+  font-size: 1.35rem; line-height: 1.32;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+.headlines li:first-child .headline { font-size: 1.6rem; font-weight: 700; }
+.headline-age { font-size: 0.95rem; color: var(--faint); margin-top: 0.2rem; }
+
+/* Sports ticker ------------------------------------------------------------------- */
+.ticker {
+  display: flex; align-items: center; height: 4rem;
+  margin: 0 -2.6rem; padding: 0 2.6rem;
+  background: rgba(0, 0, 0, 0.35); border-top: 1px solid var(--card-line);
+}
+.ticker-label {
+  flex: none; margin-right: 1.4rem; padding: 0.35rem 0.9rem; border-radius: 0.5rem;
+  background: var(--accent); color: #0b0f17; font-weight: 800; font-size: 1.05rem;
+  letter-spacing: 0.1rem; text-transform: uppercase;
+}
+.ticker-label.live { background: var(--bad); color: #fff; }
+.ticker-window { flex: 1 1 auto; overflow: hidden; white-space: nowrap; position: relative; }
+.ticker-track { display: inline-block; white-space: nowrap; font-size: 1.4rem; }
+.ticker-track.moving { animation: ticker linear infinite; }
+@keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.tick { display: inline-block; margin-right: 2.6rem; }
+.tick-league { color: var(--accent); font-weight: 700; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.08rem; margin-right: 1.2rem; }
+.tick-lead { color: var(--muted); margin-right: 0.6rem; font-variant-numeric: tabular-nums; }
+.tick.live .tick-lead { color: var(--bad); font-weight: 700; }
+.tick.live .tick-lead:before { content: "● "; }
+.tick-score { font-weight: 700; margin: 0 0.5rem; }
+.tick.favourite .tick-teams { color: var(--warn); font-weight: 700; }
+
+/* Big screens fill the screen exactly; the cards share the height. */
+@media (min-width: 900px) {
+  html, body { height: 100%; overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  .columns { flex: 1 1 auto; min-height: 0; }
+  .card { min-height: 0; }
+}
+
+/* Phones: one column, ordinary sizes. */
+@media (max-width: 899px) {
+  html { font-size: 15px; }
+  body { padding: 1.2rem 1rem 5rem; }
+  .top { align-items: center; }
+  .time { font-size: 3.6rem; }
+  .date { font-size: 1.1rem; }
+  .now-icon { width: 3.6rem; height: 3.6rem; margin-right: 0.6rem; }
+  .now-temp { font-size: 2.6rem; }
+  .now-desc { font-size: 1rem; }
+  .now-place { font-size: 0.9rem; }
+  .now { display: none !important; } /* the weather card says the same */
+  .departures { font-size: 1.15rem; }
+  .dep-time { width: 3.9rem; }
+  .dep-plat { width: 4.4rem; }
+  .dep-status { width: 6.4rem; }
+  .columns { display: block; }
+  .column { margin-right: 0; }
+  .ticker { position: fixed; left: 0; right: 0; bottom: 0; margin: 0; padding: 0 1rem; }
+}

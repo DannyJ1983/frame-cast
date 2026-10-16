@@ -18,6 +18,8 @@ def test_tv_javascript():
 
 
 TV_DIR = Path(__file__).resolve().parent.parent / "tv"
+# The dashboard page runs inside the TV app too.
+DASHBOARD_DIR = Path(__file__).resolve().parent.parent / "framecast" / "dashboard" / "page"
 # The 2019 Frame's web engine is Chromium 63. These would break it but pass in a modern browser.
 TOO_NEW = {
     "?.": "optional chaining (Chrome 80)",
@@ -33,16 +35,19 @@ TOO_NEW_CSS = {
     "gap:": "flexbox gap (Chrome 84)",
     "aspect-ratio": "aspect-ratio (Chrome 88)",
     ":is(": ":is() (Chrome 88)",
+    "clamp(": "clamp() (Chrome 79)",
+    "min(": "min() (Chrome 79)",
+    "max(": "max() (Chrome 79)",
 }
 
 
 def test_tv_code_avoids_features_newer_than_chromium_63():
     problems = []
-    for path in sorted((TV_DIR / "js").glob("*.js")):
+    for path in sorted((TV_DIR / "js").glob("*.js")) + sorted(DASHBOARD_DIR.glob("*.js")):
         for number, line in enumerate(path.read_text().splitlines(), 1):
             code = line.split("//", 1)[0]
             problems += [f"{path.name}:{number}: {why}" for token, why in TOO_NEW.items() if token in code]
-    for path in sorted((TV_DIR / "css").glob("*.css")):
+    for path in sorted((TV_DIR / "css").glob("*.css")) + sorted(DASHBOARD_DIR.glob("*.css")):
         for number, line in enumerate(path.read_text().splitlines(), 1):
             if line.lstrip().startswith(("/*", "*")) or "`" in line:
                 continue

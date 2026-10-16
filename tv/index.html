@@ -17,7 +17,12 @@
     </header>
     <p id="grid-empty" class="empty">No channels yet. Save some on the phone page<span id="hub-address"></span>, or share a page from your phone to play it here.</p>
     <div id="grid" class="grid"></div>
-    <p class="hint">OK: play · Back: close</p>
+    <p class="hint">OK: play · Back: dashboard</p>
+  </section>
+
+  <!-- The dashboard is a page on the home server, so it updates without reinstalling the app. -->
+  <section id="dashboard" class="screen">
+    <iframe id="dashboard-frame" tabindex="-1" scrolling="no" title="Dashboard"></iframe>
   </section>
 
   <section id="loading" class="screen">

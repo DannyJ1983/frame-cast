@@ -124,3 +124,25 @@ button.danger { background: var(--bad); color: #fff; }
 .channel-buttons { display: flex; flex: none; }
 .channel-buttons button { padding: 8px 10px; margin-left: 6px; font-size: 0.85rem; }
 .channel-buttons button.arrow { padding: 8px 7px; margin-left: 4px; }
+
+#dashboard-section .section-head div { display: flex; align-items: center; }
+.small-link { color: var(--accent); font-weight: 600; font-size: 0.9rem; margin-right: 12px; text-decoration: none; }
+#dash-details { margin-top: 8px; }
+#dash-form h4 { margin: 20px 0 8px; }
+#dash-form label { margin-top: 10px; }
+#dash-form input, #dash-form select { width: 100%; }
+#dash-form .row { align-items: flex-end; }
+#dash-form .row .field { flex: 1; min-width: 0; }
+#dash-form .row .field.narrow { flex: 0 0 34%; }
+select {
+  font: inherit; padding: 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--card); color: var(--text);
+}
+#dash-news-url { margin-top: 8px; }
+.small-print { font-size: 0.85rem; margin: 6px 0 0; }
+.link-button.inline { padding: 0; font-size: inherit; }
+.checks { display: flex; flex-wrap: wrap; }
+.checks label {
+  display: flex; align-items: center; margin: 0 14px 8px 0; color: var(--text); font-size: 0.95rem;
+}
+.checks input { width: auto !important; flex: none; margin: 0 6px 0 0; }

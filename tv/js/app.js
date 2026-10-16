@@ -1,4 +1,4 @@
-// Frame Cast TV app: wires the hub connection, the player, the channel grid, the screens and the remote.
+// Frame Cast TV app: wires the hub connection, the player, the dashboard, the channel grid, the screens and the remote.
 (function () {
   "use strict";
   var core = window.FrameCastCore;
@@ -16,6 +16,8 @@
   var lastReport = 0;
   var disconnectedSince = null;
   var keyCodes = Object.assign({}, core.KEY_CODES);
+  var dashboardShown = false; // the app opens on the dashboard once, when it first reaches the hub
+  var lastActivity = Date.now();
 
   // Storage -------------------------------------------------------------------
 
@@ -30,6 +32,9 @@
   // Screens -------------------------------------------------------------------
 
   function setMode(next) {
+    // Leaving the dashboard unloads it, so it isn't polling and animating behind a video.
+    if (mode === "dashboard" && next !== "dashboard") $("dashboard-frame").src = "about:blank";
+    if (next === "idle" && mode !== "idle") lastActivity = Date.now();
     mode = next;
     document.body.className = "mode-" + next + (document.body.classList.contains("osd-visible") ? " osd-visible" : "");
   }
@@ -154,7 +159,7 @@
   var skipChannel = null; // a lookup the viewer backed out of
 
   function tileCount() {
-    return channels.length + 1; // the last tile opens the server settings
+    return channels.length + 2; // then the dashboard and the server settings
   }
 
   function makeTile(name, logoUrl, fallback, channelId) {
@@ -189,6 +194,9 @@
       var logo = channel.has_logo && hub ? hub.logoUrl(channel) : null;
       grid.appendChild(makeTile(channel.name, logo, core.initials(channel.name), channel.id));
     });
+    var board = makeTile("Dashboard", null, "Dashboard", null);
+    board.className += " dashboard";
+    grid.appendChild(board);
     var settings = makeTile("Server address", null, "Settings", null);
     settings.className += " settings";
     grid.appendChild(settings);
@@ -252,7 +260,24 @@
 
   function activateTile() {
     if (gridIndex < channels.length) playChannel(channels[gridIndex]);
+    else if (gridIndex === channels.length) openDashboard();
     else openSettings();
+  }
+
+  // Dashboard -----------------------------------------------------------------
+
+  function openDashboard() {
+    if (!hub) return;
+    document.body.classList.remove("osd-visible");
+    if (mode !== "dashboard") $("dashboard-frame").src = hub.dashboardUrl();
+    setMode("dashboard");
+  }
+
+  function showScreen(screen) {
+    if (screen !== "dashboard") return;
+    if (finding) cancelFinding();
+    if (player.state !== "stopped") player.stop();
+    openDashboard();
   }
 
   // Hub -----------------------------------------------------------------------
@@ -273,10 +298,15 @@
         channels = list;
         renderGrid();
       },
+      onShow: showScreen,
       onConnected: function () {
         disconnectedSince = null;
         hubStatus("Ready. Connected to " + hubUrl);
         report(player.state === "stopped" ? "idle" : player.state);
+        if (!dashboardShown) {
+          dashboardShown = true;
+          if (mode === "idle") openDashboard();
+        }
       },
       onDisconnected: function () {
         if (disconnectedSince === null) disconnectedSince = Date.now();
@@ -289,6 +319,9 @@
   setInterval(function () {
     if (disconnectedSince !== null && Date.now() - disconnectedSince > UNREACHABLE_AFTER_MS) {
       hubStatus("Can't reach the home server at " + hubUrl + ". Is it running? Choose Server address to change it.", true);
+    }
+    if (mode === "idle" && hub && hub.connected && Date.now() - lastActivity > core.IDLE_HOME_SECONDS * 1000) {
+      openDashboard();
     }
   }, 2000);
 
@@ -343,13 +376,14 @@
     }
   }
 
-  document.addEventListener("keydown", function (event) {
-    var name = core.keyName(event.keyCode, keyCodes);
+  function handleKey(keyCode, event) {
+    lastActivity = Date.now();
+    var name = core.keyName(keyCode, keyCodes);
     var action = core.keyAction(mode, name);
     if (!action) return;
     // While typing in the address box, let the keyboard handle everything but Back.
     if (mode === "settings" && document.activeElement === $("hub-input") && action !== "cancel" && action !== "move-focus") return;
-    event.preventDefault();
+    if (event) event.preventDefault();
 
     switch (action) {
       case "toggle": player.toggle(); showOsd(player.state === "paused"); break;
@@ -370,6 +404,14 @@
         showFocus();
         break;
       case "exit": exitApp(); break;
+      case "home":
+        if (hub && hub.connected) openDashboard();
+        else exitApp();
+        break;
+      case "open-grid":
+        setMode("idle");
+        showFocus();
+        break;
       case "move-left":
       case "move-right":
       case "move-up":
@@ -393,6 +435,18 @@
         }
         break;
     }
+  }
+
+  document.addEventListener("keydown", function (event) {
+    handleKey(event.keyCode, event);
+  });
+
+  // Keys pressed while the dashboard page itself has focus arrive as messages from it.
+  window.addEventListener("message", function (event) {
+    var data = event.data;
+    if (mode !== "dashboard" || !data || typeof data.frameCastKey !== "number") return;
+    if (!hubUrl || hubUrl.indexOf(event.origin) !== 0) return;
+    handleKey(data.frameCastKey, null);
   });
 
   $("hub-input").addEventListener("keydown", function (event) {
@@ -419,5 +473,6 @@
     player: player,
     mode: function () { return mode; },
     gridIndex: function () { return gridIndex; },
+    openDashboard: openDashboard,
   };
 })();

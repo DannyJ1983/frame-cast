@@ -18,6 +18,8 @@ from fastapi.staticfiles import StaticFiles
 
 from .channels import ChannelError, ChannelStore
 from .config import Settings
+from .dashboard import DashboardService, DashboardStore
+from .dashboard.routes import add_dashboard_routes
 from .hub import CONTROL_ACTIONS, Event, Hub, PlayCommand, sse
 from .links import extract_url
 from .relay import Relay
@@ -127,6 +129,7 @@ def create_app(
     launcher: TvLauncher | None = None,
     hub: Hub | None = None,
     channels: ChannelStore | None = None,
+    dashboard: DashboardService | None = None,
 ) -> FastAPI:
     """Build the FastAPI app. Collaborators can be swapped for tests."""
     resolver = resolver or Resolver(sniffer=PageSniffer.from_setting(settings.browser))
@@ -134,6 +137,7 @@ def create_app(
     hub = hub or Hub()
     channels = channels or ChannelStore(settings.state_dir)
     hub.set_channels(channels.public())
+    dashboard = dashboard or DashboardService(DashboardStore(settings.state_dir))
     stream_cache: dict[str, tuple[float, Stream]] = {}
     if launcher is None and settings.tv_host:
         launcher = TvLauncher(settings.tv_host, settings.tv_app_id, settings.token_file)
@@ -146,11 +150,13 @@ def create_app(
         for task in tasks:
             task.cancel()
         await relay.aclose()
+        await dashboard.aclose()
 
     app = FastAPI(title="Frame Cast", lifespan=lifespan)
     app.state.hub = hub
     app.state.relay = relay
     app.state.channels = channels
+    app.state.dashboard = dashboard
     app.state.stream_cache = stream_cache
     app.state.settings = settings
     app.state.tasks = tasks
@@ -376,6 +382,8 @@ def create_app(
             return reply(request, 404, "That channel doesn't exist any more.")
         status, message, title = await play_page(channel.url, title=channel.name, channel_id=channel.id)
         return reply(request, status, message, title=title)
+
+    add_dashboard_routes(app, dashboard, hub)
 
     @app.api_route("/p/{rest:path}", methods=["GET", "HEAD"])
     async def relay_stream(request: Request) -> Response:

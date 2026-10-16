@@ -187,6 +187,10 @@ class Hub:
             log.warning("TV reported an error: %s", status.get("message"))
         self._publish_state()
 
+    def show(self, screen: str) -> int:
+        """Ask every connected TV to switch to a screen, such as "dashboard". Returns how many got it."""
+        return self._to_tvs(("show", {"screen": screen}))
+
     def set_channels(self, channels: list[dict[str, Any]]) -> None:
         """Replace the saved-channel list and send it to every TV and phone."""
         self.channels = list(channels)

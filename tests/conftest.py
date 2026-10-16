@@ -5,7 +5,9 @@ import time
 import pytest
 import uvicorn
 
+from dashboard_samples import FakeFetcher, working_routes
 from framecast.config import Settings
+from framecast.dashboard import DashboardService, DashboardStore
 from framecast.resolver import ResolveError, Resolver, choose_stream
 from framecast.server import create_app
 
@@ -71,8 +73,14 @@ class LiveServer:
 
 
 @pytest.fixture
-def live_server(settings, fake_resolver):
-    server = LiveServer(create_app(settings, resolver=fake_resolver))
+def fake_dashboard(settings):
+    """A dashboard whose sources are served from tests/dashboard_samples.py."""
+    return DashboardService(DashboardStore(settings.state_dir), FakeFetcher(working_routes()))
+
+
+@pytest.fixture
+def live_server(settings, fake_resolver, fake_dashboard):
+    server = LiveServer(create_app(settings, resolver=fake_resolver, dashboard=fake_dashboard))
     server.start()
     yield server
     server.stop()

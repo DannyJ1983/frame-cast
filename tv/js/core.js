@@ -34,6 +34,8 @@
   // Desktop keyboard equivalents, for trying the app in a browser.
   var BROWSER_KEYS = { 27: "Return", 8: "Return", 32: "MediaPlayPause", 33: "ChannelUp", 34: "ChannelDown" };
   var GRID_COLUMNS = 5;
+  // The channel grid goes back to the dashboard after this long without a key press.
+  var IDLE_HOME_SECONDS = 120;
 
   var SEEK_BACK_SECONDS = 10;
   var SEEK_FORWARD_SECONDS = 30;
@@ -132,13 +134,20 @@
       if (keyName === "Enter" || keyName === "Return") return "dismiss";
       return "";
     }
+    if (mode === "dashboard") {
+      if (keyName === "Return") return "exit";
+      if (keyName === "Enter" || keyName === "Left" || keyName === "Right" || keyName === "Up" || keyName === "Down") {
+        return "open-grid";
+      }
+      return "";
+    }
     // idle: the channel grid
     if (keyName === "Left") return "move-left";
     if (keyName === "Right") return "move-right";
     if (keyName === "Up") return "move-up";
     if (keyName === "Down") return "move-down";
     if (keyName === "Enter") return "activate";
-    if (keyName === "Return") return "exit";
+    if (keyName === "Return") return "home";
     return "";
   }
 
@@ -188,6 +197,7 @@
     KEY_CODES: KEY_CODES,
     REGISTER_KEYS: REGISTER_KEYS,
     GRID_COLUMNS: GRID_COLUMNS,
+    IDLE_HOME_SECONDS: IDLE_HOME_SECONDS,
     moveFocus: moveFocus,
     neighbourChannel: neighbourChannel,
     initials: initials,

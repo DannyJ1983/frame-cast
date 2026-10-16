@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0f17">
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <header class="top">
+    <div class="clock">
+      <div id="time" class="time">--:--</div>
+      <div id="date" class="date"></div>
+    </div>
+    <div id="now" class="now" hidden>
+      <div id="now-icon" class="now-icon"></div>
+      <div class="now-text">
+        <div id="now-temp" class="now-temp"></div>
+        <div id="now-desc" class="now-desc"></div>
+        <div id="now-place" class="now-place"></div>
+      </div>
+    </div>
+  </header>
+  <p id="offline" class="offline" hidden>Can't reach the home server. Trying again…</p>
+
+  <main class="columns">
+    <div class="column" data-column="left">
+      <section id="setup" class="card setup" hidden>
+        <h2 class="card-title">Set up your dashboard</h2>
+        <p class="setup-text">On your phone, open <b id="setup-address"></b> and go to <b>Dashboard</b>. Add your postcode for the weather, your station for train times, and somewhere you drive to for traffic.</p>
+      </section>
+      <section id="weather" class="card" hidden>
+        <h2 class="card-title"><span>Forecast</span><span id="weather-place" class="card-sub"></span></h2>
+        <div class="today">
+          <div class="today-main">
+            <div id="today-range" class="today-range"></div>
+            <div id="today-text" class="today-text"></div>
+          </div>
+          <div class="today-facts">
+            <div id="today-rain"></div>
+            <div id="today-sun"></div>
+            <div id="today-wind"></div>
+          </div>
+        </div>
+        <div id="hours" class="hours"></div>
+        <p id="tomorrow" class="tomorrow"></p>
+        <p class="card-note" data-note="weather"></p>
+      </section>
+      <section id="traffic" class="card" hidden>
+        <h2 class="card-title"><span id="traffic-title">Drive</span></h2>
+        <div class="drive">
+          <span id="drive-minutes" class="drive-minutes"></span>
+          <span id="drive-text" class="drive-text"></span>
+        </div>
+        <p class="card-note" data-note="traffic"></p>
+      </section>
+    </div>
+    <div class="column" data-column="middle">
+      <section id="trains" class="card" hidden>
+        <h2 class="card-title"><span>Departures</span><span id="trains-station" class="card-sub"></span></h2>
+        <table class="departures">
+          <tbody id="departures"></tbody>
+        </table>
+        <p id="trains-empty" class="empty" hidden>No departures in the next couple of hours.</p>
+        <p id="trains-message" class="rail-message" hidden></p>
+        <p class="card-note" data-note="trains"></p>
+      </section>
+    </div>
+    <div class="column" data-column="right">
+      <section id="news" class="card" hidden>
+        <h2 class="card-title"><span>Headlines</span><span id="news-source" class="card-sub"></span></h2>
+        <ul id="headlines" class="headlines"></ul>
+        <p class="card-note" data-note="news"></p>
+      </section>
+    </div>
+  </main>
+
+  <footer id="sport" class="ticker" hidden>
+    <div id="ticker-label" class="ticker-label">Sport</div>
+    <div id="ticker-window" class="ticker-window">
+      <div id="ticker-track" class="ticker-track"></div>
+    </div>
+  </footer>
+
+  <script src="format.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

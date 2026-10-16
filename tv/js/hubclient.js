@@ -2,7 +2,7 @@
 (function (root) {
   "use strict";
 
-  /** handlers: { onPlay(command), onControl(control), onChannels(list), onConnected(), onDisconnected() } */
+  /** handlers: { onPlay(command), onControl(control), onChannels(list), onShow(screen), onConnected(), onDisconnected() } */
   function HubClient(hubUrl, handlers) {
     this.hubUrl = hubUrl.replace(/\/+$/, "");
     this.handlers = handlers;
@@ -33,12 +33,20 @@
     source.addEventListener("channels", function (event) {
       self.handlers.onChannels(JSON.parse(event.data).channels || []);
     });
+    source.addEventListener("show", function (event) {
+      if (self.handlers.onShow) self.handlers.onShow(JSON.parse(event.data).screen);
+    });
   };
 
   HubClient.prototype.close = function () {
     if (this.source) this.source.close();
     this.source = null;
     this.connected = false;
+  };
+
+  /** Address of the dashboard page the home server serves. */
+  HubClient.prototype.dashboardUrl = function () {
+    return this.hubUrl + "/dashboard/";
   };
 
   /** Address of a channel's logo; the version changes whenever the logo does. */

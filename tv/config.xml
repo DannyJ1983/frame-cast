@@ -12,6 +12,9 @@
     <content src="index.html"/>
     <icon src="icon.png"/>
     <access origin="*" subdomains="true"/>
+    <!-- The dashboard is the home server's page shown in a frame; allow it in case the TV applies
+         navigation rules to frames as well as the main page. -->
+    <tizen:allow-navigation>*</tizen:allow-navigation>
     <feature name="http://tizen.org/feature/screen.size.all"/>
     <tizen:profile name="tv-samsung"/>
     <tizen:privilege name="http://tizen.org/privilege/internet"/>

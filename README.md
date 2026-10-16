@@ -7,7 +7,7 @@ phone ──share link──▶ home server (Pi) ──finds the stream──▶
 ```
 
 - **Home server** (`framecast/`): a small Python service on a Raspberry Pi or any always-on computer. It uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) to find the video stream inside the page and tells the TV app to play it. For pages yt-dlp doesn't know, where the player is built by JavaScript as on many live TV sites, it opens the page in a hidden Chromium and catches the stream the player asks for, skipping ads. If a site only serves video to requests with a Referer or cookies, the server relays the stream and adds them.
-- **TV app** (`tv/`): a Tizen web app that plays streams with Samsung's AVPlay player. That's the TV's hardware decoder, so HLS (including live streams), DASH and MP4 all work.
+- **TV app** (`tv/`): a Tizen web app that plays streams with Samsung's AVPlay player. That's the TV's hardware decoder, so HLS (including live streams), DASH and MP4 all work. It opens on a **dashboard** with the time, weather, train departures, traffic, headlines and a sports ticker.
 - **Phone**: share from any app with an iPhone Shortcut or the Android HTTP Shortcuts app, or paste links into the server's web page.
 
 ## What works and what doesn't
@@ -102,7 +102,7 @@ These are the steps that worked on a 2019 Frame (QE43LS03R) from a Mac. They use
 
    **Frame Cast** then appears in the TV's Apps.
 
-Open Frame Cast on the TV. It should say **Ready. Connected to http://…**. To change the server address later, press OK on that screen. To update the app, run step 5 again with the computer back on the TV's network and Developer Mode still on.
+Open Frame Cast on the TV. It opens on the dashboard. Press OK to get to your channels, where the top line should say **Ready. Connected to http://…**. To change the server address later, choose the **Server address** tile there. To update the app, run step 5 again with the computer back on the TV's network and Developer Mode still on.
 
 ## 3. Share from your phone
 
@@ -138,12 +138,38 @@ This hasn't been tried on the Frame yet. If the app doesn't open, run `frame-cas
 
 ## Saved channels
 
-On the phone page, **Channels → Add** saves a channel: a name, the link to its page, and optionally a logo picture from your phone. While something's playing, **Save as a channel** fills in the form for you. Channels show up on the TV's start screen as a grid:
+On the phone page, **Channels → Add** saves a channel: a name, the link to its page, and optionally a logo picture from your phone. While something's playing, **Save as a channel** fills in the form for you. On the TV, press **OK** on the dashboard to see your channels as a grid:
 - Pick one with the arrows and press **OK**.
 - While a saved channel is playing, **CH+ / CH−** move to the next or previous channel.
-- **Back** stops and returns to the grid.
+- **Back** stops and returns to the grid. **Back** on the grid goes to the dashboard, and so does leaving the grid alone for two minutes.
 
 A channel keeps its page link rather than the stream address, because stream addresses expire, so it always finds the current stream. A stream found in the last five minutes is reused, so flicking between channels is quick. Channels and logos are kept on the Pi in `/var/lib/frame-cast`.
+
+## The dashboard
+
+The TV app opens on a dashboard served by the Pi:
+- the time and date
+- the weather now and for the next 12 hours
+- departures from your station
+- how long your drive will take in today's traffic
+- news headlines
+- a sports ticker with live scores, results and fixtures
+
+Set it up on the phone page under **Dashboard → Dashboard settings**. Then **Show on TV** puts it on screen, even over a video. **Open here** shows it on your phone or laptop.
+
+| Card | Needs | Where it comes from |
+|---|---|---|
+| Weather | Your postcode or town | [Open-Meteo](https://open-meteo.com), free, no key. Postcodes are looked up with [postcodes.io](https://postcodes.io). |
+| Trains | Your station's three-letter code, and a free key | National Rail's live departures, through the [Rail Data Marketplace](https://raildata.org.uk). Sign up, subscribe to **Live Departure Board**, and copy the consumer key from its Specification tab. |
+| Traffic | Where you drive to, and a free key | [TomTom](https://developer.tomtom.com) routing with live traffic. The drive starts from your postcode. |
+| Headlines | Nothing (BBC News by default) | Any BBC News section, The Guardian, Sky News, or the address of any RSS feed. |
+| Sport | Leagues to follow (the Premier League by default) | ESPN's scoreboards, with BBC Sport headlines when no matches are on. Name your teams to pick their matches out. |
+
+A card that isn't set up is left off. Cards are only fetched while the dashboard is on screen: trains every minute, live scores every minute, traffic every 5 minutes, and the weather every 15. If a source stops answering, its card keeps the last good data and says it couldn't update. The keys are kept on the Pi in `/var/lib/frame-cast/dashboard.json`, readable only by the Frame Cast service, and are never sent back to the phone page.
+
+The dashboard page comes from the Pi, so changes to it arrive with a Pi update. A dashboard already open on the TV reloads itself. Only the step from the app into the dashboard needs the TV app, so that's the one reinstall it takes.
+
+ESPN's scoreboards aren't an official public service. If the ticker goes quiet after an ESPN change, the rest of the dashboard carries on.
 
 ## When something doesn't play
 
@@ -160,7 +186,7 @@ A channel keeps its page link rather than the stream address, because stream add
 ```
 
 This runs:
-- unit tests for the server
+- unit tests for the server, including the dashboard's data sources against sample answers
 - the TV app's JavaScript tests, under Node
 - a check that the TV code avoids browser features newer than the TV's Chromium 63
 - browser end-to-end tests: Playwright drives the TV app with the stand-in player against a real server
@@ -176,6 +202,8 @@ Checked on the real TV (2019 Frame, QE43LS03R):
 - playback through AVPlay: a live HLS stream (a Tubi channel found on famelack by the hidden browser) and a Twitter clip at full quality
 
 Not yet confirmed on the TV:
+- the dashboard inside the TV app (it's a page from the Pi in a frame), and its remote keys
+- the live train and traffic services, which need your own keys; they're built to their documentation and tested against sample answers
 - every remote-control key, and suspend/resume when switching apps
 - 4K streams
 - opening the app automatically over Samsung's remote-control interface

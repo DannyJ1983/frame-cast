@@ -54,6 +54,8 @@ class RelaySession:
     # True when only the master playlist comes through the hub (to put the best quality first);
     # the TV then fetches everything else straight from the site.
     direct_segments: bool = False
+    # The original audio language, so dubbed tracks can be left out of the master playlist.
+    audio_language: str | None = None
 
     def upstream_headers(self, url: str, range_header: str | None) -> dict[str, str]:
         """Build the request headers for fetching ``url`` upstream."""
@@ -117,6 +119,7 @@ def rewrite_playlist(text: str, base_url: str, to_relay: Callable[[str], str]) -
 
 
 _STREAM_INF = "#EXT-X-STREAM-INF"
+_MEDIA = "#EXT-X-MEDIA:"
 MAX_VARIANT_HEIGHT = 2160  # The Frame decodes up to 4K.
 UNSUPPORTED_CODECS = ("av01",)  # 2019 Samsung TVs have no AV1 decoder.
 
@@ -141,17 +144,61 @@ def _variant_bandwidth(tag_line: str) -> int:
         return 0
 
 
-def prioritise_variants(text: str) -> str:
+def _same_language(code: str, wanted: str) -> bool:
+    """Compare language codes by their main part: "en-GB" and "en.4" both match "en"."""
+
+    def main(c: str) -> str:
+        return c.strip().lower().replace("_", "-").split("-")[0].split(".")[0]
+
+    return bool(code) and main(code) == main(wanted)
+
+
+def _choose_audio_renditions(lines: list[str], language: str) -> list[str]:
+    """In each audio group, keep just the best rendition for ``language`` and make it the default."""
+    groups: dict[str, list[int]] = {}
+    for index, line in enumerate(lines):
+        if line.startswith(_MEDIA) and _attribute(line, "TYPE") == "AUDIO":
+            groups.setdefault(_attribute(line, "GROUP-ID"), []).append(index)
+
+    def score(line: str) -> int:
+        label = (_attribute(line, "NAME") + " " + _attribute(line, "URI")).lower()
+        value = 100 if _same_language(_attribute(line, "LANGUAGE"), language) else 0
+        value += 20 if "original" in label else 0
+        value += 10 if _attribute(line, "DEFAULT") == "YES" else 0
+        value -= 50 if "dub" in label else 0
+        value -= 30 if "descripti" in label else 0
+        return value
+
+    drop: set[int] = set()
+    for indexes in groups.values():
+        if len(indexes) < 2:
+            continue
+        best = max(indexes, key=lambda i: score(lines[i]))
+        drop.update(i for i in indexes if i != best)
+        line = re.sub(r",?DEFAULT=(YES|NO)", "", lines[best])
+        line = re.sub(r",?AUTOSELECT=(YES|NO)", "", line).replace(":,", ":", 1)
+        lines[best] = line + ",DEFAULT=YES,AUTOSELECT=YES"
+    return [line for i, line in enumerate(lines) if i not in drop]
+
+
+def prioritise_variants(text: str, audio_language: str | None = None) -> str:
     """Put an HLS master playlist's best quality first, dropping levels the TV can't play.
 
     Players commonly start with the first level listed, and many sites list the
     lowest first, so short clips never climb to full quality. Levels above 4K or
-    in AV1 are dropped, unless that would leave nothing. Media playlists are
-    returned unchanged.
+    in AV1 are dropped, unless that would leave nothing.
+
+    With ``audio_language`` (the original language), levels and audio tracks in
+    other languages are dropped too. YouTube lists every level once per audio
+    language, AI dubs included, marking each with YT-EXT-AUDIO-CONTENT-ID;
+    other sites use alternative audio renditions. Media playlists are returned
+    unchanged.
     """
     lines = text.splitlines()
     if not any(line.startswith(_STREAM_INF) for line in lines):
         return text
+    if audio_language:
+        lines = _choose_audio_renditions(lines, audio_language)
     others: list[str] = []
     variants: list[tuple[str, str]] = []
     i = 0
@@ -171,6 +218,13 @@ def prioritise_variants(text: str) -> str:
         if _variant_height(v[0]) <= MAX_VARIANT_HEIGHT
         and not any(c in _attribute(v[0], "CODECS").lower() for c in UNSUPPORTED_CODECS)
     ] or variants
+    if audio_language:
+        in_language = [
+            v for v in playable
+            if not _attribute(v[0], "YT-EXT-AUDIO-CONTENT-ID")
+            or _same_language(_attribute(v[0], "YT-EXT-AUDIO-CONTENT-ID"), audio_language)
+        ]
+        playable = in_language or playable
     playable.sort(key=lambda v: (_variant_bandwidth(v[0]), _variant_height(v[0])), reverse=True)
     while others and not others[-1].strip():
         others.pop()
@@ -204,6 +258,7 @@ class Relay:
         headers: dict[str, str],
         cookies: http.cookiejar.CookieJar | None = None,
         direct_segments: bool = False,
+        audio_language: str | None = None,
     ) -> str:
         """Start a relay session for one stream and return its id.
 
@@ -211,7 +266,9 @@ class Relay:
         quality first); everything it points to is fetched by the TV directly.
         """
         session_id = secrets.token_urlsafe(8)
-        self._sessions[session_id] = RelaySession(dict(headers), cookies, direct_segments=direct_segments)
+        self._sessions[session_id] = RelaySession(
+            dict(headers), cookies, direct_segments=direct_segments, audio_language=audio_language
+        )
         while len(self._sessions) > self._max_sessions:
             self._sessions.popitem(last=False)
         return session_id
@@ -335,7 +392,9 @@ class Relay:
             await upstream.aclose()
         if upstream.status_code >= 400:
             return Response(bytes(body), status_code=upstream.status_code)
-        text = prioritise_variants(bytes(body).decode(upstream.encoding or "utf-8", errors="replace"))
+        text = prioritise_variants(
+            bytes(body).decode(upstream.encoding or "utf-8", errors="replace"), session.audio_language
+        )
         if session.direct_segments:
             # Addresses are made absolute (they'd otherwise resolve against the hub) but not relayed.
             rewritten = rewrite_playlist(text, str(upstream.url), lambda u: u)

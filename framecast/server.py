@@ -42,12 +42,15 @@ def make_command(stream: Stream, settings: Settings, relay: Relay) -> PlayComman
     if stream.needs_relay and settings.relay == "never":
         log.warning("Stream needs extra headers but relaying is off; it may not play")
     if use_relay:
-        session_id = relay.open_session(stream.headers, stream.cookies)
+        session_id = relay.open_session(stream.headers, stream.cookies, audio_language=stream.audio_language)
         url = relay.path_for(session_id, stream.url)
         user_agent = None
-    elif stream.kind == "hls" and settings.best_quality:
-        # Only the master playlist goes via the hub, reordered best-first; the video stays direct.
-        session_id = relay.open_session(stream.headers, None, direct_segments=True)
+    elif stream.kind == "hls" and (settings.best_quality or stream.audio_language):
+        # Only the master playlist goes via the hub (best quality first, original-language audio);
+        # the video stays direct.
+        session_id = relay.open_session(
+            stream.headers, None, direct_segments=True, audio_language=stream.audio_language
+        )
         url = relay.path_for(session_id, stream.url)
         user_agent = stream.user_agent
     else:

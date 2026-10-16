@@ -44,6 +44,27 @@ def test_send_with_tv_closed_keeps_link_pending(client):
     assert hub.pending.relayed is False
 
 
+def test_original_audio_language_reaches_the_relay_even_with_best_quality_off(settings):
+    from framecast.resolver import Resolver
+
+    def youtube_like(url):
+        return {
+            "title": "Dubbed",
+            "formats": [
+                {"url": "https://g/en.m3u8", "manifest_url": "https://g/master.m3u8", "protocol": "m3u8_native",
+                 "height": 720, "language": "en", "language_preference": 10},
+            ],
+        }, None
+
+    settings.best_quality = False
+    with TestClient(create_app(settings, resolver=Resolver(youtube_like))) as c:
+        c.post("/api/send", json={"url": "https://www.youtube.com/watch?v=abc"})
+        pending = c.app.state.hub.pending
+        assert pending.url.startswith("/p/")
+        session_id = pending.url.split("/")[2]
+        assert c.app.state.relay.session(session_id).audio_language == "en"
+
+
 def test_best_quality_off_sends_stream_direct(settings, fake_resolver):
     settings.best_quality = False
     with TestClient(create_app(settings, resolver=fake_resolver)) as c:

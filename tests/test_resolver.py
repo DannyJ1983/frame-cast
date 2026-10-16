@@ -72,6 +72,27 @@ def test_hls_kept_when_it_is_sharper_or_live():
     assert choose_stream({"formats": unknown}, PAGE).kind == "hls"
 
 
+def test_original_audio_language_from_youtube_formats():
+    master = "https://manifest.googlevideo.com/hls_variant/master.m3u8"
+    info = {
+        "title": "Dubbed everywhere",
+        "formats": [
+            fmt(url="https://g/zh.m3u8", manifest_url=master, protocol="m3u8_native", height=1080, language="zh", language_preference=-1),
+            fmt(url="https://g/en.m3u8", manifest_url=master, protocol="m3u8_native", height=1080, language="en", language_preference=10),
+            fmt(url="https://g/es.m3u8", manifest_url=master, protocol="m3u8_native", height=720, language="es", language_preference=-1),
+        ],
+    }
+    stream = choose_stream(info, PAGE)
+    assert stream.kind == "hls" and stream.url == master
+    assert stream.audio_language == "en"
+
+
+def test_audio_language_falls_back_to_default_and_is_none_elsewhere():
+    formats = [fmt(url="https://g/a.m3u8", protocol="m3u8", language="fr", language_preference=5)]
+    assert choose_stream({"formats": formats}, PAGE).audio_language == "fr"
+    assert choose_stream({"url": "https://cdn/a.mp4", "ext": "mp4", "language": "de"}, PAGE).audio_language is None
+
+
 def test_hls_without_manifest_url_uses_variant():
     info = {"formats": [fmt(url="https://cdn/only.m3u8", protocol="m3u8")]}
     assert choose_stream(info, PAGE).url == "https://cdn/only.m3u8"

@@ -140,6 +140,56 @@ def test_prioritise_variants_leaves_media_playlists_and_keeps_something():
     assert "a.m3u8" in prioritise_variants(only_av1)
 
 
+YOUTUBE_MASTER = "\n".join(
+    [
+        "#EXTM3U",
+        "#EXT-X-INDEPENDENT-SEGMENTS",
+        '#EXT-X-STREAM-INF:BANDWIDTH=4900000,CODECS="avc1.640028,mp4a.40.2",RESOLUTION=1920x1080,YT-EXT-AUDIO-CONTENT-ID="zh.3"',
+        "https://g/zh/1080.m3u8",
+        '#EXT-X-STREAM-INF:BANDWIDTH=4800000,CODECS="avc1.640028,mp4a.40.2",RESOLUTION=1920x1080,YT-EXT-AUDIO-CONTENT-ID="en.4"',
+        "https://g/en/1080.m3u8",
+        '#EXT-X-STREAM-INF:BANDWIDTH=1200000,CODECS="avc1.4d401f,mp4a.40.2",RESOLUTION=854x480,YT-EXT-AUDIO-CONTENT-ID="en.4"',
+        "https://g/en/480.m3u8",
+        '#EXT-X-STREAM-INF:BANDWIDTH=1300000,CODECS="avc1.4d401f,mp4a.40.2",RESOLUTION=854x480,YT-EXT-AUDIO-CONTENT-ID="es-US.3"',
+        "https://g/es/480.m3u8",
+    ]
+)
+
+
+def test_youtube_dubbed_levels_dropped_for_original_language():
+    uris = [l for l in prioritise_variants(YOUTUBE_MASTER, "en").splitlines() if not l.startswith("#")]
+    assert uris == ["https://g/en/1080.m3u8", "https://g/en/480.m3u8"]
+    # Without a language, nothing is dropped (and the highest bandwidth still comes first).
+    uris = [l for l in prioritise_variants(YOUTUBE_MASTER).splitlines() if not l.startswith("#")]
+    assert uris[0] == "https://g/zh/1080.m3u8" and len(uris) == 4
+    # A language the playlist doesn't have leaves everything in.
+    assert len([l for l in prioritise_variants(YOUTUBE_MASTER, "ja").splitlines() if not l.startswith("#")]) == 4
+
+
+def test_audio_renditions_narrowed_to_original_language():
+    master = "\n".join(
+        [
+            "#EXTM3U",
+            '#EXT-X-MEDIA:DEFAULT=YES,TYPE=AUDIO,GROUP-ID="aud",NAME="Deutsch (auto-dubbed)",LANGUAGE="de",URI="de.m3u8"',
+            '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="English original",LANGUAGE="en-GB",DEFAULT=NO,AUTOSELECT=NO,URI="en.m3u8"',
+            '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="en",URI="subs.m3u8"',
+            '#EXT-X-STREAM-INF:BANDWIDTH=2000000,AUDIO="aud",SUBTITLES="subs"',
+            "video.m3u8",
+        ]
+    )
+    out = prioritise_variants(master, "en").splitlines()
+    audio = [l for l in out if "TYPE=AUDIO" in l]
+    assert len(audio) == 1
+    assert 'URI="en.m3u8"' in audio[0]
+    assert audio[0].endswith(",DEFAULT=YES,AUTOSELECT=YES")
+    assert "DEFAULT=NO" not in audio[0] and "AUTOSELECT=NO" not in audio[0]
+    assert any("TYPE=SUBTITLES" in l for l in out)
+    # A default rendition listed first loses its leading attribute cleanly when it's the one kept.
+    kept = prioritise_variants(master, "de").splitlines()
+    german = [l for l in kept if "TYPE=AUDIO" in l][0]
+    assert german.startswith("#EXT-X-MEDIA:TYPE=AUDIO")
+
+
 def test_direct_segments_session_reorders_without_relaying():
     def upstream(request):
         return httpx.Response(

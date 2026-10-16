@@ -52,6 +52,8 @@ class Stream:
     ``kind`` is "hls", "dash" or "file". ``headers`` are the request headers the
     stream needs, minus the generic ones. ``cookies`` is the jar yt-dlp filled
     while looking, kept so the relay can send the same cookies.
+    ``audio_language`` is the video's original audio language where the site
+    offers several (YouTube's AI dubs, say), so the TV can be steered to it.
     """
 
     url: str
@@ -61,6 +63,7 @@ class Stream:
     is_live: bool = False
     headers: dict[str, str] = field(default_factory=dict)
     cookies: http.cookiejar.CookieJar | None = field(default=None, repr=False, compare=False)
+    audio_language: str | None = None
 
     @property
     def user_agent(self) -> str | None:
@@ -116,6 +119,22 @@ def _file_rank(fmt: dict[str, Any]) -> tuple[int, int, float]:
     return (ext_rank, _height(fmt), float(fmt.get("tbr") or 0))
 
 
+# yt-dlp's YouTube extractor marks audio in the original language with language_preference 10
+# and the default track with 5; other sites leave it unset.
+_ORIGINAL_AUDIO = 10
+_DEFAULT_AUDIO = 5
+
+
+def original_audio_language(formats: list[dict[str, Any]]) -> str | None:
+    """The original audio language among the formats, if the site marks one."""
+    for wanted in (_ORIGINAL_AUDIO, _DEFAULT_AUDIO):
+        for fmt in formats:
+            preference = fmt.get("language_preference")
+            if fmt.get("language") and isinstance(preference, int) and preference >= wanted:
+                return str(fmt["language"])
+    return None
+
+
 def _relevant_headers(headers: dict[str, str] | None) -> dict[str, str]:
     return {k: v for k, v in (headers or {}).items() if k.lower() not in _GENERIC_HEADERS}
 
@@ -148,6 +167,7 @@ def choose_stream(
 
     title = info.get("title") or info.get("webpage_url_basename") or "Video"
     is_live = bool(info.get("is_live")) or info.get("live_status") == "is_live"
+    audio_language = original_audio_language(usable)
 
     def make(fmt: dict[str, Any], url: str, kind: str) -> Stream:
         stream = Stream(
@@ -158,6 +178,7 @@ def choose_stream(
             is_live=is_live,
             headers=_relevant_headers(fmt.get("http_headers")),
             cookies=cookies,
+            audio_language=audio_language,
         )
         log.info("Picked %s stream (format %s) for %s", kind, fmt.get("format_id"), page_url)
         return stream

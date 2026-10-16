@@ -15,7 +15,7 @@ phone ──share link──▶ home server (Pi) ──finds the stream──▶
 - Most pages with a plain video or a live stream: news sites, sports streams, free live TV sites, the many sites yt-dlp supports, and direct `.m3u8`/`.mpd`/`.mp4` links.
 - **Copy-protected services won't work**: Netflix, Disney+, Prime Video, NOW and the like. Use their own TV apps.
 - Pages that need you signed in won't work.
-- YouTube: use the TV's YouTube app and the cast button in the YouTube phone app.
+- YouTube: the TV's own YouTube app is best, with the cast button in the YouTube phone app. Shared YouTube links do play, in the video's original language rather than an AI dub.
 - Anyone on your home WiFi can send videos to the TV. There's no password.
 
 ## 1. Run the home server
@@ -159,7 +159,7 @@ A channel keeps its page link rather than the stream address, because stream add
 .venv/bin/pytest
 ```
 
-This runs about 90 tests:
+This runs:
 - unit tests for the server
 - the TV app's JavaScript tests, under Node
 - a check that the TV code avoids browser features newer than the TV's Chromium 63

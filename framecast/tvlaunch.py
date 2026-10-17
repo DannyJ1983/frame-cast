@@ -5,7 +5,7 @@ Samsung TVs from 2016 onwards answer a small local API: a REST interface on port
 connection makes the TV ask "Allow?" on screen; the token it then hands out is
 saved so later connections are silent.
 
-None of this has been tried on the 2019 Frame yet. Each attempt is logged so a
+None of this has been tried on the Frame yet. Each attempt is logged so a
 failure can be traced, and ``python -m framecast tv-apps`` lists the app IDs the
 TV reports in case the default one is wrong.
 """

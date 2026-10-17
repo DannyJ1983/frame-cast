@@ -1,6 +1,6 @@
 # Frame Cast
 
-Share a webpage from a phone; a home server (Pi) finds the video stream with yt-dlp; a Tizen web app on a 2019 Samsung Frame (Tizen 5.0) plays it with AVPlay. README.md has the full picture.
+Share a webpage from a phone; a home server (Pi) finds the video stream with yt-dlp; a Tizen web app on a 2020 Samsung Frame (QE43LS03T) plays it with AVPlay. README.md has the full picture.
 
 ## Layout
 
@@ -14,11 +14,12 @@ Share a webpage from a phone; a home server (Pi) finds the video stream with yt-
   - `server.py`: routes
   - `tvlaunch.py`: opens the app over Samsung's local API
 - `tv/`: the Tizen web app. `core.js` is pure and tested under Node; `fakeplayer.js` stands in for `webapis.avplay` in desktop browsers.
+- `scripts/render_icons.py`: draws the app icon and renders the TV and phone PNGs
 - `tests/`: pytest, including the Node tests and Playwright end-to-end tests. `tests/dashboard_samples.py` holds sample answers from the dashboard's sources and a fake fetcher.
 
 ## Rules
 
-- **The TV runs Chromium 63.** No optional chaining, `??`, ES modules, CSS `inset` or flexbox `gap`. `tests/test_tv_js.py` guards the common ones.
+- **Keep to Chromium 63** (the 2019 Frame's engine, so older than this TV's and safe on both). No optional chaining, `??`, ES modules, CSS `inset` or flexbox `gap`. `tests/test_tv_js.py` guards the common ones.
 - **The dashboard page (`framecast/dashboard/page/`) follows the same rule**, since the TV shows it.
 - **Nobody can test on the TV from here.** Say "needs hardware" for AVPlay behaviour, remote keys, Tizen packaging and Samsung's remote API rather than claiming they work.
 - **Don't guess Samsung API details.** Check them against Samsung's documentation, and say so when you can't.

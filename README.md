@@ -1,6 +1,6 @@
 # Frame Cast
 
-Share a webpage from your phone and its video plays on the TV. Built for a 2019 Samsung Frame (QE43LS03R), which has no Chromecast.
+Share a webpage from your phone and its video plays on the TV. Built for a Samsung Frame (QE43LS03T, the 2020 model), which has no Chromecast.
 
 ```
 phone ──share link──▶ home server (Pi) ──finds the stream──▶ TV app ──plays it on the TV's own decoder
@@ -58,7 +58,7 @@ Then open `http://localhost:8090` for the phone page and `http://localhost:8090/
 
 You do this once, from a Windows, Mac or Linux computer. The TV doesn't need rooting.
 
-These are the steps that worked on a 2019 Frame (QE43LS03R) from a Mac. They use Samsung's command-line tools only: Tizen Studio is retired, and no VS Code or Samsung account was needed.
+These are the steps that worked on a 2020 Frame (QE43LS03T) from a Mac. They use Samsung's command-line tools only: Tizen Studio is retired, and no VS Code or Samsung account was needed.
 
 **The computer and the TV must be on the same network.** If your home has mesh WiFi plugged into the Virgin Hub, the two can end up on different networks. Check both IP addresses start the same way, for example 192.168.0. If not, join the computer to the TV's WiFi for the install.
 
@@ -78,7 +78,7 @@ These are the steps that worked on a 2019 Frame (QE43LS03R) from a Mac. They use
    source ~/.zshrc
    ```
 
-3. **Make a certificate.** A plain Tizen certificate was enough for the 2019 Frame. Use your own password, letters and numbers only:
+3. **Make a certificate.** A plain Tizen certificate was enough for the 2020 Frame. Use your own password, letters and numbers only:
 
    ```sh
    tizen certificate -a framecast -p YourPassword -c GB -n FrameCast -f framecast
@@ -200,11 +200,13 @@ This runs:
 
 `python -m framecast --help` lists the server options.
 
+The app icon is drawn in `scripts/render_icons.py`. After changing it, run `.venv/bin/python scripts/render_icons.py` to re-render the TV icon and the phone page's icons.
+
 ## Status
 
 Checked here: everything except the parts that need the TV. That covers stream finding (against yt-dlp-shaped data), the relay, the server, the phone page, and the TV app's logic and screens in Chromium with the stand-in player. The Pi installer was also trial-run in a container, with systemd stubbed out.
 
-Checked on the real TV (2019 Frame, QE43LS03R):
+Checked on the real TV (2020 Frame, QE43LS03T):
 - building, signing and installing with `tv/build.sh` and a plain Tizen certificate, from a Mac
 - playback through AVPlay: a live HLS stream (a Tubi channel found on famelack by the hidden browser) and a Twitter clip at full quality
 

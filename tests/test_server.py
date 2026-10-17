@@ -307,3 +307,21 @@ def test_phone_event_stream(live_server):
             _read_events(response, 1, received)
     assert received[0][0] == "state"
     assert received[0][1]["tv_connected"] is False
+
+
+def test_icons_and_manifest_are_served(settings, fake_resolver):
+    import json as _json
+    from pathlib import Path
+
+    with TestClient(create_app(settings, resolver=fake_resolver)) as c:
+        page = c.get("/").text
+        for link in ("/static/favicon.svg", "/static/apple-touch-icon.png", "/static/manifest.json"):
+            assert link in page
+            assert c.get(link).status_code == 200
+        manifest = c.get("/static/manifest.json").json()
+        for entry in manifest["icons"]:
+            assert c.get(entry["src"]).headers["content-type"] == "image/png"
+    # The TV app's icon: a PNG at the 512x423 size Samsung TV apps use.
+    data = (Path(__file__).resolve().parent.parent / "tv" / "icon.png").read_bytes()
+    assert data[:8] == b"\x89PNG\r\n\x1a\n"
+    assert (int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")) == (512, 423)

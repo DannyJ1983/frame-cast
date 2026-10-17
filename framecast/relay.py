@@ -121,7 +121,7 @@ def rewrite_playlist(text: str, base_url: str, to_relay: Callable[[str], str]) -
 _STREAM_INF = "#EXT-X-STREAM-INF"
 _MEDIA = "#EXT-X-MEDIA:"
 MAX_VARIANT_HEIGHT = 2160  # The Frame decodes up to 4K.
-UNSUPPORTED_CODECS = ("av01",)  # 2019 Samsung TVs have no AV1 decoder.
+UNSUPPORTED_CODECS = ("av01",)  # Older Samsung TVs have no AV1 decoder, and H.264 is always offered too.
 
 
 def _attribute(tag_line: str, name: str) -> str:

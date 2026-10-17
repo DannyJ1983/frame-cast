@@ -178,6 +178,17 @@ The dashboard page comes from the Pi, so changes to it arrive with a Pi update. 
 
 ESPN's scoreboards aren't an official public service. If the ticker goes quiet after an ESPN change, the rest of the dashboard carries on.
 
+## Departures board for the hallway
+
+`http://<server>:8090/board` shows just the next buses and trains, the time and the weather, in large type. It's for a tablet, an old phone or an Amazon Echo Show by the front door, and it uses the same settings as the dashboard.
+
+On an **Echo Show**:
+1. Say "Alexa, open Silk" to open its web browser.
+2. Go to `http://192.168.0.236:8090/board` (your server's address) and bookmark it for next time.
+3. Tap **Tap to keep this on screen**.
+
+The Echo Show's browser normally goes back to the home screen after a few minutes unless something is playing. So that tap starts a silent sound on a loop, the workaround the [Keep Silk Open](https://github.com/DaGammla/keep-silk-open) project found. It was tested mainly on an Echo Show 5, and Amazon's updates can change this behaviour, so it may not hold on every model.
+
 ## When something doesn't play
 
 - **Rule out the TV first.** On the server's web page, open the sharing section and press **Send a test video**. If that plays, the TV app is fine and the problem is the page.
@@ -214,6 +225,7 @@ Not yet confirmed on the TV:
 - the dashboard inside the TV app (it's a page from the Pi in a frame), and its remote keys
 - the live train, bus and traffic services, which need your own keys; they're built to their documentation and tested against sample answers
 - the bus timetable download for a real region, and live bus estimates against real buses
+- keeping the departures board on screen on an Echo Show
 - every remote-control key, and suspend/resume when switching apps
 - 4K streams
 - opening the app automatically over Samsung's remote-control interface

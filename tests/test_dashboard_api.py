@@ -50,3 +50,14 @@ def test_page_is_served(settings, fake_resolver, fake_dashboard):
     with client(settings, fake_resolver, fake_dashboard) as c:
         assert c.get("/dashboard/").status_code == 200
         assert c.get("/dashboard", follow_redirects=True).status_code == 200
+
+
+def test_departures_board_and_chosen_cards(settings, fake_resolver, fake_dashboard):
+    with client(settings, fake_resolver, fake_dashboard) as c:
+        board = c.get("/board", follow_redirects=False)
+        assert board.status_code in (302, 307) and board.headers["location"] == "/dashboard/board.html"
+        page = c.get("/board").text
+        assert "board.js" in page and "icons.js" in page
+        only = c.get("/api/dashboard?cards=news").json()
+        assert set(only["cards"]) == {"news"}
+        assert set(c.get("/api/dashboard").json()["cards"]) == {"news", "sport"}

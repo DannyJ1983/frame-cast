@@ -83,10 +83,14 @@ class DashboardService:
         setup = self.store.settings.setup()
         return [name for name in CARDS if setup[name]]
 
-    async def snapshot(self) -> dict[str, Any]:
-        """Everything the page shows. Waits briefly for cards it has never had; refreshes stale ones in the background."""
+    async def snapshot(self, only: list[str] | None = None) -> dict[str, Any]:
+        """Everything the page shows, or just the cards named in ``only``.
+
+        Waits briefly for cards it has never had; refreshes stale ones in the background.
+        """
+        names = [name for name in self.enabled() if only is None or name in only]
         waiting = []
-        for name in self.enabled():
+        for name in names:
             card = self._cards.setdefault(name, Card())
             due = card.fetched is None or self._clock() - card.fetched >= card.refresh
             if name == "buses" and isinstance(card.data, dict) and card.data.get("preparing") and not self.buses.busy:
@@ -98,7 +102,7 @@ class DashboardService:
         if waiting:
             await asyncio.wait(waiting, timeout=FIRST_LOAD_WAIT)
         cards = {}
-        for name in self.enabled():
+        for name in names:
             card = self._cards[name]
             cards[name] = {"data": card.data, "error": card.error}
         settings = self.store.settings

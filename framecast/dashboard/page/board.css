@@ -1,0 +1,86 @@
+/* The departures board: buses and trains in large type, for a tablet or an Echo Show by the door.
+   Kept to the same old CSS as the dashboard (no `gap`, min() or clamp()), so it runs anywhere. */
+[hidden] { display: none !important; }
+
+html { font-size: 2.4vh; } /* landscape: the height decides the size */
+@media (orientation: portrait) { html { font-size: 2.2vw; } }
+html, body { margin: 0; height: 100%; }
+body {
+  display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden;
+  padding: 1.6rem 2rem 1.4rem;
+  background: radial-gradient(ellipse at top left, var(--bg-2), var(--bg) 70%);
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: "SamsungOne", "Amazon Ember", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.board-top { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 1.2rem; }
+.board-time { font-size: 4.6rem; font-weight: 700; line-height: 0.95; letter-spacing: -0.1rem; }
+.board-date { font-size: 1.4rem; color: var(--muted); margin-top: 0.4rem; }
+.board-now { display: flex; align-items: center; }
+.board-now-icon { width: 4.4rem; height: 4.4rem; margin-right: 0.9rem; }
+.board-now-icon svg { width: 100%; height: 100%; }
+.board-now-temp { font-size: 3.4rem; font-weight: 700; line-height: 1; text-align: right; }
+.board-now-desc { font-size: 1.2rem; color: var(--muted); margin-top: 0.3rem; text-align: right; }
+.board-offline { margin: -0.4rem 0 0.8rem; color: var(--warn); font-size: 1.2rem; }
+
+.board-main { flex: 1 1 auto; min-height: 0; display: flex; }
+.panel {
+  flex: 1 1 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; box-sizing: border-box;
+  background: var(--card); border: 1px solid var(--card-line); border-radius: 1.1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0.6rem 1.6rem rgba(0, 0, 0, 0.18);
+  padding: 1.1rem 1.4rem; margin-right: 1.2rem; overflow: hidden;
+}
+.panel:last-child { margin-right: 0; }
+@media (orientation: portrait) {
+  .board-main { flex-direction: column; }
+  .panel { margin-right: 0; margin-bottom: 1.2rem; }
+  .panel:last-child { margin-bottom: 0; }
+}
+.panel-title {
+  display: flex; justify-content: space-between; align-items: baseline; flex: none;
+  margin: 0 0 0.6rem; font-size: 1.05rem; font-weight: 700; letter-spacing: 0.12rem;
+  text-transform: uppercase; color: var(--muted);
+}
+.panel-sub {
+  letter-spacing: 0; text-transform: none; color: var(--text); font-size: 1.2rem; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-left: 1rem;
+}
+.panel-message { font-size: 1.4rem; color: var(--muted); line-height: 1.45; margin: 0.4rem 0 0; }
+.panel-message b { color: var(--accent); }
+.panel-note { margin: 0.6rem 0 0; color: var(--warn); font-size: 1rem; flex: none; }
+.panel-note:empty { display: none; }
+
+/* Rows are sized in em, so the first (the next departure) can be larger as a whole. */
+.rows { list-style: none; margin: 0; padding: 0; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.row { display: flex; align-items: center; padding: 0.45em 0; border-bottom: 1px solid var(--card-line); font-size: 1.5rem; }
+.row:last-child { border-bottom: 0; }
+.rows .row:first-child { font-size: 1.75rem; padding-top: 0.2em; }
+.badge {
+  flex: none; min-width: 2.3em; box-sizing: border-box; margin-right: 0.6em; padding: 0.15em 0.35em;
+  border-radius: 0.35em; text-align: center; font-weight: 800; color: #fff; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+.clock { flex: none; width: 3.2em; margin-right: 0.4em; font-weight: 700; font-variant-numeric: tabular-nums; }
+.what { flex: 1 1 auto; min-width: 0; }
+.dest {
+  display: block; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  line-height: 1.15;
+}
+.what small { display: block; font-size: 0.6em; color: var(--muted); margin-top: 0.15em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bus .what small { color: var(--warn); }
+.when { flex: none; margin-left: 0.6em; text-align: right; font-weight: 700; white-space: nowrap; color: var(--muted); }
+.when.live, .when.ok { color: var(--good); }
+.when.late { color: var(--warn); }
+.when.cancelled { color: var(--bad); }
+.row.cancelled .clock, .row.cancelled .dest { text-decoration: line-through; color: var(--faint); }
+.live-mark {
+  display: inline-block; width: 0.32em; height: 0.32em; border-radius: 50%; margin-right: 0.3em; vertical-align: 0.12em;
+  background: var(--good); box-shadow: 0 0 0 0.14em rgba(87, 208, 140, 0.18);
+}
+
+.keep-awake {
+  position: fixed; left: 50%; bottom: 1.4rem; transform: translateX(-50%);
+  font: inherit; font-size: 1.3rem; font-weight: 700; padding: 0.8rem 1.6rem; border: 0; border-radius: 999px;
+  background: var(--accent); color: #0b0f17; box-shadow: 0 0.6rem 1.6rem rgba(0, 0, 0, 0.4);
+}

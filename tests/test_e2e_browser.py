@@ -379,3 +379,49 @@ def test_bus_settings_from_the_phone_and_buses_on_the_tv(tv_page):
     assert frame.locator("#bus-rows tr").count() > 0
     assert frame.locator("#buses-stop").text_content() == "Churchill Square (Stop D)"
     assert frame.locator("#buses-preparing").is_hidden()
+
+
+def test_departures_board(live_server):
+    import asyncio as _asyncio
+
+    service = live_server.app.state.dashboard
+
+    async def configure():
+        await service.update_settings({"place": "LS1 4AP", "station": "LDS", "rail_key": "k",
+                                       "bus_stops": "149000006934"})
+        await service.snapshot()
+        if service.buses._job:
+            await service.buses._job
+        service._cards.clear()
+
+    server_loop_call_async(live_server, configure())
+    with playwright_api.sync_playwright() as pw:
+        try:
+            browser = pw.chromium.launch(executable_path=_chromium_path())
+        except Exception as err:
+            pytest.skip(f"Chromium not available: {err}")
+        # An Echo Show's browser says "Silk"; the board then offers to keep itself on screen.
+        page = browser.new_page(viewport={"width": 1280, "height": 800},
+                                user_agent="Mozilla/5.0 (Linux; Android 9; AEOCH) AppleWebKit/537.36 (KHTML, like Gecko) Silk/120.0 Chrome/120.0 Safari/537.36")
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(f"{live_server.url}/board")
+        page.wait_for_function("document.querySelectorAll('#train-list .row').length > 0")
+        page.wait_for_function("document.querySelectorAll('#bus-list .row').length > 0")
+        assert page.text_content("#trains-station") == "Leeds"
+        assert page.text_content("#buses-stop") == "Churchill Square (Stop D)"
+        assert page.is_visible("#now") and page.text_content("#now-temp") == "14°"
+        assert page.is_hidden("#setup")
+        assert page.is_visible("#keep-awake")
+        page.click("#keep-awake")
+        page.wait_for_function("window.Board.awake()")
+        assert page.is_hidden("#keep-awake")
+        browser.close()
+        assert errors == []
+
+
+def server_loop_call_async(server, coroutine):
+    """Run a coroutine on the server's event loop and wait for it."""
+    import asyncio
+
+    return asyncio.run_coroutine_threadsafe(coroutine, server.app.state.loop).result(30)

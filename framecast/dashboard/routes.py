@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from ..hub import Hub
@@ -29,15 +29,16 @@ def page_version(folder: Path = PAGE_DIR) -> str:
 
 
 def add_dashboard_routes(app: FastAPI, service: DashboardService, hub: Hub) -> None:
-    """Add /api/dashboard*, and the page at /dashboard/."""
+    """Add /api/dashboard*, the page at /dashboard/, and the departures board at /board."""
     version = page_version()
 
     def message(status: int, text: str) -> JSONResponse:
         return JSONResponse({"ok": status < 400, "message": text}, status_code=status)
 
     @app.get("/api/dashboard")
-    async def dashboard_data() -> Response:
-        data = await service.snapshot()
+    async def dashboard_data(cards: str | None = None) -> Response:
+        only = [name.strip() for name in cards.split(",")] if cards else None
+        data = await service.snapshot(only)
         data["page_version"] = version
         return JSONResponse(data, headers={"cache-control": "no-store"})
 
@@ -64,5 +65,9 @@ def add_dashboard_routes(app: FastAPI, service: DashboardService, hub: Hub) -> N
         if not hub.show("dashboard"):
             return message(409, "The TV app isn't open.")
         return message(200, "Showing the dashboard on the TV.")
+
+    @app.get("/board")
+    async def departures_board() -> RedirectResponse:
+        return RedirectResponse("/dashboard/board.html")
 
     app.mount("/dashboard", StaticFiles(directory=PAGE_DIR, html=True), name="dashboard")

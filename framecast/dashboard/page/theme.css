@@ -1,0 +1,15 @@
+/* Colours shared by the dashboard and the departures board. */
+:root {
+  --bg: #0b0f17;
+  --bg-2: #121a29;
+  --card: rgba(255, 255, 255, 0.045);
+  --card-line: rgba(255, 255, 255, 0.08);
+  --text: #eef2f7;
+  --muted: #93a0b2;
+  --faint: #5f6b7c;
+  --accent: #7aa7ff;
+  --good: #57d08c;
+  --warn: #f5bd4f;
+  --bad: #ff7d6e;
+  --rain: #6fb6ff;
+}

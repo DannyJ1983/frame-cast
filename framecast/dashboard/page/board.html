@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0f17">
+  <title>Departures</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="board.css">
+</head>
+<body>
+  <header class="board-top">
+    <div>
+      <div id="time" class="board-time">--:--</div>
+      <div id="date" class="board-date"></div>
+    </div>
+    <div id="now" class="board-now" hidden>
+      <div id="now-icon" class="board-now-icon"></div>
+      <div>
+        <div id="now-temp" class="board-now-temp"></div>
+        <div id="now-desc" class="board-now-desc"></div>
+      </div>
+    </div>
+  </header>
+  <p id="offline" class="board-offline" hidden>Can't reach the home server. Trying again…</p>
+
+  <main id="panels" class="board-main">
+    <section id="buses" class="panel" hidden>
+      <h2 class="panel-title"><span>Buses</span><span id="buses-stop" class="panel-sub"></span></h2>
+      <p id="buses-preparing" class="panel-message" hidden></p>
+      <ol id="bus-list" class="rows"></ol>
+      <p id="buses-empty" class="panel-message" hidden>No buses in the next couple of hours.</p>
+      <p id="buses-note" class="panel-note"></p>
+    </section>
+    <section id="trains" class="panel" hidden>
+      <h2 class="panel-title"><span>Trains</span><span id="trains-station" class="panel-sub"></span></h2>
+      <ol id="train-list" class="rows"></ol>
+      <p id="trains-empty" class="panel-message" hidden>No departures in the next couple of hours.</p>
+      <p id="trains-note" class="panel-note"></p>
+    </section>
+    <section id="setup" class="panel" hidden>
+      <h2 class="panel-title"><span>Departures</span></h2>
+      <p class="panel-message">Add your bus stop or station on the phone page at <b id="setup-address"></b>, under <b>Dashboard settings</b>.</p>
+    </section>
+  </main>
+
+  <button id="keep-awake" class="keep-awake" type="button" hidden>Tap to keep this on screen</button>
+
+  <script src="format.js"></script>
+  <script src="icons.js"></script>
+  <script src="board.js"></script>
+</body>
+</html>

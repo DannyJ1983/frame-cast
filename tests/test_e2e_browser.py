@@ -153,7 +153,8 @@ def test_link_shared_while_tv_closed_plays_when_opened(live_server):
 def test_settings_screen_saves_address(tv_page):
     page, server = tv_page
     to_grid(page)
-    page.keyboard.press("ArrowRight")  # past the Dashboard tile to Server address
+    page.keyboard.press("ArrowRight")  # past the Dashboard tile
+    page.keyboard.press("ArrowRight")  # and Now playing, to Server address
     page.keyboard.press("Enter")
     page.wait_for_function("document.body.classList.contains('mode-settings')")
     page.fill("#hub-input", server.url.replace("http://", ""))
@@ -211,8 +212,8 @@ def test_channels_show_on_tv_and_play_with_ok(tv_page):
     news = add_channel(server, "News 24", "news")
     add_channel(server, "Sport", "sport")
     httpx.put(f"{server.url}/api/channels/{news['id']}/logo", content=PNG, timeout=5)
-    page.wait_for_function("document.querySelectorAll('#grid .tile').length === 4")
-    assert tile_names(page) == ["News 24", "Sport", "Dashboard", "Server address"]
+    page.wait_for_function("document.querySelectorAll('#grid .tile').length === 5")
+    assert tile_names(page) == ["News 24", "Sport", "Dashboard", "Now playing", "Server address"]
     page.wait_for_function("document.querySelector('#grid .tile img') !== null")
     assert "/logo?v=1" in page.get_attribute("#grid .tile img", "src")
     assert page.is_hidden("#grid-empty")
@@ -239,7 +240,7 @@ def test_channels_show_on_tv_and_play_with_ok(tv_page):
 def test_channel_that_fails_to_resolve_shows_error(tv_page):
     page, server = tv_page
     httpx.post(f"{server.url}/api/channels", json={"name": "Gone", "url": "https://site.example/novideo"}, timeout=5)
-    page.wait_for_function("document.querySelectorAll('#grid .tile').length === 3")
+    page.wait_for_function("document.querySelectorAll('#grid .tile').length === 4")
     to_grid(page)
     page.keyboard.press("Enter")
     page.wait_for_function("document.body.classList.contains('mode-error')")
@@ -251,9 +252,10 @@ def test_channel_that_fails_to_resolve_shows_error(tv_page):
 def test_grid_reaches_settings_tile(tv_page):
     page, server = tv_page
     add_channel(server, "One", "one")
-    page.wait_for_function("document.querySelectorAll('#grid .tile').length === 3")
+    page.wait_for_function("document.querySelectorAll('#grid .tile').length === 4")
     to_grid(page)
     page.keyboard.press("ArrowRight")  # Dashboard
+    page.keyboard.press("ArrowRight")  # Now playing
     page.keyboard.press("ArrowRight")  # Server address
     page.keyboard.press("Enter")
     page.wait_for_function("document.body.classList.contains('mode-settings')")
@@ -425,3 +427,62 @@ def server_loop_call_async(server, coroutine):
     import asyncio
 
     return asyncio.run_coroutine_threadsafe(coroutine, server.app.state.loop).result(30)
+
+
+# Spotify Now Playing ---------------------------------------------------------------
+
+
+def connect_spotify(server, auto_show=False):
+    from spotify_samples import CLIENT_ID
+
+    settings = server.app.state.spotify.store.settings
+    settings.client_id, settings.refresh_token, settings.auto_show = CLIENT_ID, "refresh-0", auto_show
+
+
+def test_now_playing_tile(tv_page):
+    page, server = tv_page
+    connect_spotify(server)
+    to_grid(page)
+    page.keyboard.press("ArrowRight")  # no channels: Dashboard, then Now playing
+    page.keyboard.press("Enter")
+    page.wait_for_function("document.getElementById('dashboard-frame').src.endsWith('/dashboard/nowplaying.html')")
+    frame = page.frame_locator("#dashboard-frame")
+    frame.locator("#title").filter(has_text="Blue Monday").wait_for()
+    assert frame.locator("#artists").text_content() == "New Order"
+    assert frame.locator("#album").text_content() == "Power, Corruption & Lies"
+    assert frame.locator("#label").text_content() == "Now playing on Office"
+    assert frame.locator("#art").get_attribute("src") == "https://i.scdn.co/image/t1-640"
+    assert frame.locator("#queue li").count() == 3
+    assert frame.locator("#length").text_content() == "7:29"
+    assert frame.locator("#elapsed").text_content().startswith("1:0")
+    # Back goes to the dashboard rather than closing the app.
+    page.keyboard.press("Escape")
+    page.wait_for_function("document.getElementById('dashboard-frame').src.endsWith('/dashboard/')")
+    assert page.evaluate("document.body.classList.contains('mode-dashboard')")
+
+
+def test_now_playing_messages_and_the_phone_button(tv_page, fake_spotify):
+    page, server = tv_page
+    viewer = page.context.browser.new_page()
+    viewer.goto(f"{server.url}/nowplaying")
+    viewer.wait_for_function("document.getElementById('message-title').textContent === \"Spotify isn't connected\"")
+    connect_spotify(server)
+    fake_spotify.player = None
+    viewer.evaluate("window.NowPlaying.load()")
+    viewer.wait_for_function("document.getElementById('message-title').textContent === 'Nothing playing on Office'")
+    # The phone page's button puts Now Playing on the TV.
+    httpx.post(f"{server.url}/api/nowplaying/show", timeout=5)
+    page.wait_for_function("document.getElementById('dashboard-frame').src.endsWith('/dashboard/nowplaying.html')")
+
+
+def test_dashboard_switches_to_now_playing_when_music_starts(tv_page):
+    page, server = tv_page
+    connect_spotify(server, auto_show=True)
+    frame = page.frame_locator("#dashboard-frame")
+    frame.locator("#news .headline").first.wait_for()
+    dashboard = "document.getElementById('dashboard-frame').contentWindow"
+    page.evaluate(f"{dashboard}.Dashboard.checkSpotify()")
+    page.wait_for_timeout(300)
+    page.evaluate(f"{dashboard}.Dashboard.checkNowPlaying()")
+    page.wait_for_function(f"{dashboard}.location.pathname.endsWith('/nowplaying.html')")
+    frame.locator("#title").filter(has_text="Blue Monday").wait_for()

@@ -146,3 +146,13 @@ select {
   display: flex; align-items: center; margin: 0 14px 8px 0; color: var(--text); font-size: 0.95rem;
 }
 .checks input { width: auto !important; flex: none; margin: 0 6px 0 0; }
+
+#sp-details { margin-top: 8px; }
+#sp-form h4 { margin: 20px 0 8px; }
+#sp-form label { margin-top: 10px; }
+#sp-form input:not([type="checkbox"]) { width: 100%; }
+#sp-form .row input { width: auto; }
+.steps { padding-left: 1.2rem; margin: 6px 0; }
+.steps li { margin: 4px 0; }
+.check-row { display: flex; align-items: flex-start; color: var(--text); font-size: 0.95rem; }
+.check-row input { flex: none; margin: 3px 8px 0 0; }

@@ -41,6 +41,15 @@
     return parts.join(" · ");
   }
 
+  /** A track position or length: "3:07", or "1:02:07" past an hour. */
+  function timecode(ms) {
+    var total = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+    var hours = Math.floor(total / 3600);
+    var minutes = Math.floor((total % 3600) / 60);
+    var seconds = pad(total % 60);
+    return hours ? hours + ":" + pad(minutes) + ":" + seconds : minutes + ":" + seconds;
+  }
+
   /** "14°", or a dash when there's no number. */
   function tempText(value) {
     return typeof value === "number" && isFinite(value) ? Math.round(value) + "°" : "–";
@@ -140,6 +149,7 @@
     clockText: clockText,
     dateText: dateText,
     tempText: tempText,
+    timecode: timecode,
     dayName: dayName,
     trainDetail: trainDetail,
     ago: ago,

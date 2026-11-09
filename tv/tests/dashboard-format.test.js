@@ -64,3 +64,12 @@ test("bus times, details and badge colours", () => {
   assert.equal(F.routeColour("7"), F.routeColour("7"));
   assert.match(F.routeColour("N7"), /^#[0-9a-f]{6}$/);
 });
+
+test("track timecodes", () => {
+  assert.equal(F.timecode(0), "0:00");
+  assert.equal(F.timecode(61000), "1:01");
+  assert.equal(F.timecode(449999), "7:29");
+  assert.equal(F.timecode(3727000), "1:02:07");
+  assert.equal(F.timecode(null), "0:00");
+  assert.equal(F.timecode(-5), "0:00");
+});

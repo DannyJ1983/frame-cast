@@ -20,6 +20,8 @@ from .channels import ChannelError, ChannelStore
 from .config import Settings
 from .dashboard import DashboardService, DashboardStore
 from .dashboard.routes import add_dashboard_routes
+from .spotify import NowPlaying, SpotifyStore
+from .spotify.routes import add_spotify_routes
 from .hub import CONTROL_ACTIONS, Event, Hub, PlayCommand, sse
 from .links import extract_url
 from .relay import Relay
@@ -130,6 +132,7 @@ def create_app(
     hub: Hub | None = None,
     channels: ChannelStore | None = None,
     dashboard: DashboardService | None = None,
+    spotify: NowPlaying | None = None,
 ) -> FastAPI:
     """Build the FastAPI app. Collaborators can be swapped for tests."""
     resolver = resolver or Resolver(sniffer=PageSniffer.from_setting(settings.browser))
@@ -138,6 +141,7 @@ def create_app(
     channels = channels or ChannelStore(settings.state_dir)
     hub.set_channels(channels.public())
     dashboard = dashboard or DashboardService(DashboardStore(settings.state_dir))
+    spotify = spotify or NowPlaying(SpotifyStore(settings.state_dir), port=settings.port)
     stream_cache: dict[str, tuple[float, Stream]] = {}
     if launcher is None and settings.tv_host:
         launcher = TvLauncher(settings.tv_host, settings.tv_app_id, settings.token_file)
@@ -151,12 +155,14 @@ def create_app(
             task.cancel()
         await relay.aclose()
         await dashboard.aclose()
+        await spotify.aclose()
 
     app = FastAPI(title="Frame Cast", lifespan=lifespan)
     app.state.hub = hub
     app.state.relay = relay
     app.state.channels = channels
     app.state.dashboard = dashboard
+    app.state.spotify = spotify
     app.state.stream_cache = stream_cache
     app.state.settings = settings
     app.state.tasks = tasks
@@ -384,6 +390,7 @@ def create_app(
         return reply(request, status, message, title=title)
 
     add_dashboard_routes(app, dashboard, hub)
+    add_spotify_routes(app, spotify, hub)
 
     @app.api_route("/p/{rest:path}", methods=["GET", "HEAD"])
     async def relay_stream(request: Request) -> Response:

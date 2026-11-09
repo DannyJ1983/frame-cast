@@ -301,6 +301,28 @@
       });
   }
 
+  // Now Playing takes over when the Spotify speaker starts, if that's switched on in the settings.
+  var nowPlayingAuto = false;
+
+  function checkSpotify() {
+    fetch("/api/spotify", { cache: "no-store" })
+      .then(function (response) { return response.json(); })
+      .then(function (status) {
+        nowPlayingAuto = Boolean(status.settings && status.settings.auto_show && status.settings.connected);
+      })
+      .catch(function () {});
+  }
+
+  function checkNowPlaying() {
+    if (!nowPlayingAuto) return;
+    fetch("/api/nowplaying", { cache: "no-store" })
+      .then(function (response) { return response.json(); })
+      .then(function (playing) {
+        if (playing.state === "playing") window.location.replace("nowplaying.html?auto=1");
+      })
+      .catch(function () {});
+  }
+
   // Inside the TV app, keys pressed while this page has focus are handed to the app.
   if (window.parent !== window) {
     document.addEventListener("keydown", function (event) {
@@ -313,5 +335,8 @@
   setInterval(tick, 1000);
   load();
   setInterval(load, REFRESH_MS);
-  window.Dashboard = { render: render, load: load };
+  checkSpotify();
+  setInterval(checkSpotify, REFRESH_MS);
+  setInterval(checkNowPlaying, 10000);
+  window.Dashboard = { render: render, load: load, checkSpotify: checkSpotify, checkNowPlaying: checkNowPlaying };
 })();

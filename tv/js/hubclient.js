@@ -44,9 +44,9 @@
     this.connected = false;
   };
 
-  /** Address of the dashboard page the home server serves. */
-  HubClient.prototype.dashboardUrl = function () {
-    return this.hubUrl + "/dashboard/";
+  /** Address of a page in the home server's dashboard folder: the dashboard itself, or "nowplaying.html". */
+  HubClient.prototype.dashboardUrl = function (page) {
+    return this.hubUrl + "/dashboard/" + (page || "");
   };
 
   /** Address of a channel's logo; the version changes whenever the logo does. */

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0f17">
+  <title>Now Playing</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="nowplaying.css">
+</head>
+<body class="state-loading">
+  <div class="backdrop"><img id="backdrop" alt=""></div>
+  <div class="shade"></div>
+
+  <main id="playing" class="playing">
+    <div class="art-box"><img id="art" class="art" alt=""></div>
+    <section class="info">
+      <p class="label"><span id="state-mark" class="state-mark"></span><span id="label">Now playing</span></p>
+      <h1 id="title" class="title"></h1>
+      <p id="artists" class="artists"></p>
+      <p id="album" class="album"></p>
+      <div class="progress"><div id="bar" class="bar"></div></div>
+      <p class="times"><span id="elapsed">0:00</span><span id="length">0:00</span></p>
+      <div id="next" class="next" hidden>
+        <p class="next-label">Up next</p>
+        <ol id="queue" class="queue"></ol>
+      </div>
+    </section>
+  </main>
+
+  <section id="message" class="message-screen" hidden>
+    <svg class="note" viewBox="0 0 64 64" aria-hidden="true"><path d="M24 46V14l28-6v32"/><circle cx="17" cy="46" r="7"/><circle cx="45" cy="40" r="7"/></svg>
+    <p id="message-title" class="message-title"></p>
+    <p id="message-text" class="message-text"></p>
+  </section>
+
+  <p id="clock" class="clock"></p>
+  <p id="note" class="note-line" hidden></p>
+
+  <script src="format.js"></script>
+  <script src="nowplaying.js"></script>
+</body>
+</html>

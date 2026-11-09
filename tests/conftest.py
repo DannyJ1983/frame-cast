@@ -6,10 +6,12 @@ import pytest
 import uvicorn
 
 from dashboard_samples import FakeFetcher, working_routes
+from spotify_samples import FakeSpotify
 from framecast.config import Settings
 from framecast.dashboard import DashboardService, DashboardStore
 from framecast.resolver import ResolveError, Resolver, choose_stream
 from framecast.server import create_app
+from framecast.spotify import NowPlaying, SpotifyStore
 
 
 def fake_extract(url: str):
@@ -79,8 +81,19 @@ def fake_dashboard(settings):
 
 
 @pytest.fixture
-def live_server(settings, fake_resolver, fake_dashboard):
-    server = LiveServer(create_app(settings, resolver=fake_resolver, dashboard=fake_dashboard))
+def fake_spotify():
+    """A pretend Spotify; tests sign in by setting a Client ID and refresh token on the service's store."""
+    return FakeSpotify()
+
+
+@pytest.fixture
+def spotify_service(settings, fake_spotify):
+    return NowPlaying(SpotifyStore(settings.state_dir), port=settings.port, http=fake_spotify.client())
+
+
+@pytest.fixture
+def live_server(settings, fake_resolver, fake_dashboard, spotify_service):
+    server = LiveServer(create_app(settings, resolver=fake_resolver, dashboard=fake_dashboard, spotify=spotify_service))
     server.start()
     yield server
     server.stop()

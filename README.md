@@ -178,6 +178,17 @@ The dashboard page comes from the Pi, so changes to it arrive with a Pi update. 
 
 ESPN's scoreboards aren't an official public service. If the ticker goes quiet after an ESPN change, the rest of the dashboard carries on.
 
+## Spotify Now Playing
+
+Now Playing shows what's on one Spotify speaker (the Office, say): big album art, the title, artist and album, a timecode that ticks along, and the next few tracks in the queue. On the TV it's the **Now playing** tile next to Dashboard. You can also have the dashboard switch to it by itself when that speaker starts playing, and switch back a minute after it stops. It works in any browser at `http://<server>:8090/nowplaying`.
+
+It reads your Spotify account through your own Spotify developer app. Set it up on the phone page under **Spotify → Spotify settings**:
+1. **Make a Spotify app.** On developer.spotify.com, open the Dashboard and choose **Create app**. Add the redirect address the phone page shows (`http://127.0.0.1:8090/spotify/callback`), tick **Web API**, then copy the app's **Client ID** into the phone page. Spotify only lets personal apps work for accounts with Premium. If someone else's account will sign in, add it under **User Management** in the app's settings.
+2. **Connect.** Press **Connect** and agree. Spotify only allows plain-`http` redirects to `127.0.0.1`, so you'll land on a page that won't load. Copy its whole address, paste it back into the phone page and press **Finish**.
+3. **Pick the speaker** by its Spotify name (**List my speakers** shows what Spotify can see), and choose whether the dashboard should switch to it automatically.
+
+The Pi only asks Spotify while a Now Playing screen, or the dashboard with automatic switching, is open: the player every few seconds and the queue when the track changes. The sign-in is kept in `/var/lib/frame-cast/spotify.json`, readable only by the Frame Cast service.
+
 ## Departures board for the hallway
 
 `http://<server>:8090/board` shows just the next buses and trains, the time and the weather, in large type. It's for a tablet, an old phone or an Amazon Echo Show by the front door, and it uses the same settings as the dashboard.
@@ -226,6 +237,7 @@ Not yet confirmed on the TV:
 - the live train, bus and traffic services, which need your own keys; they're built to their documentation and tested against sample answers
 - the bus timetable download for a real region, and live bus estimates against real buses
 - keeping the departures board on screen on an Echo Show
+- Spotify Now Playing against the real Spotify service (it's built to Spotify's API specification and tested against sample answers), and the blurred album-art background on the TV
 - every remote-control key, and suspend/resume when switching apps
 - 4K streams
 - opening the app automatically over Samsung's remote-control interface

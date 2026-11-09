@@ -17,6 +17,7 @@
   var disconnectedSince = null;
   var keyCodes = Object.assign({}, core.KEY_CODES);
   var dashboardShown = false; // the app opens on the dashboard once, when it first reaches the hub
+  var framePage = ""; // which home server page the frame shows: "" (the dashboard) or "nowplaying.html"
   var lastActivity = Date.now();
 
   // Storage -------------------------------------------------------------------
@@ -159,7 +160,7 @@
   var skipChannel = null; // a lookup the viewer backed out of
 
   function tileCount() {
-    return channels.length + 2; // then the dashboard and the server settings
+    return channels.length + 3; // then the dashboard, Now Playing and the server settings
   }
 
   function makeTile(name, logoUrl, fallback, channelId) {
@@ -197,6 +198,9 @@
     var board = makeTile("Dashboard", null, "Dashboard", null);
     board.className += " dashboard";
     grid.appendChild(board);
+    var music = makeTile("Now playing", null, "Music", null);
+    music.className += " dashboard";
+    grid.appendChild(music);
     var settings = makeTile("Server address", null, "Settings", null);
     settings.className += " settings";
     grid.appendChild(settings);
@@ -260,24 +264,29 @@
 
   function activateTile() {
     if (gridIndex < channels.length) playChannel(channels[gridIndex]);
-    else if (gridIndex === channels.length) openDashboard();
+    else if (gridIndex === channels.length) openDashboard("");
+    else if (gridIndex === channels.length + 1) openDashboard("nowplaying.html");
     else openSettings();
   }
 
   // Dashboard -----------------------------------------------------------------
 
-  function openDashboard() {
+  /** Show a home server page full screen: the dashboard (page "") or "nowplaying.html". */
+  function openDashboard(page) {
     if (!hub) return;
+    page = page || "";
     document.body.classList.remove("osd-visible");
-    if (mode !== "dashboard") $("dashboard-frame").src = hub.dashboardUrl();
+    if (mode !== "dashboard" || page !== framePage) $("dashboard-frame").src = hub.dashboardUrl(page);
+    framePage = page;
     setMode("dashboard");
   }
 
   function showScreen(screen) {
-    if (screen !== "dashboard") return;
+    var pages = { dashboard: "", nowplaying: "nowplaying.html" };
+    if (!Object.prototype.hasOwnProperty.call(pages, screen)) return;
     if (finding) cancelFinding();
     if (player.state !== "stopped") player.stop();
-    openDashboard();
+    openDashboard(pages[screen]);
   }
 
   // Hub -----------------------------------------------------------------------
@@ -403,7 +412,11 @@
         report("idle");
         showFocus();
         break;
-      case "exit": exitApp(); break;
+      case "exit":
+        // Back on Now Playing goes to the dashboard; Back on the dashboard closes the app.
+        if (mode === "dashboard" && framePage) openDashboard("");
+        else exitApp();
+        break;
       case "home":
         if (hub && hub.connected) openDashboard();
         else exitApp();

@@ -11,6 +11,7 @@ Share a webpage from a phone; a home server (Pi) finds the video stream with yt-
   - `hub.py`: in-memory state and event queues
   - `channels.py`: saved channels (name, page link, logo) in the state folder
   - `dashboard/`: the dashboard the TV opens on. One module per source (`weather`, `trains`, `traffic`, `news`, `sport`, `places`), each with a pure `parse_*`; buses are `gtfs.py` (timetable index), `buslive.py` (live estimates) and `buses.py` (download and cache); `service.py` caches and refreshes; `page/` is the page itself, which runs in the TV's Chromium 63 too
+  - `spotify/`: Spotify Now Playing: PKCE sign-in (`auth.py`), the token store and client, pure parsing of the player and queue (`player.py`), and the cached service and routes. The screen is `dashboard/page/nowplaying.html`
   - `server.py`: routes
   - `tvlaunch.py`: opens the app over Samsung's local API
 - `tv/`: the Tizen web app. `core.js` is pure and tested under Node; `fakeplayer.js` stands in for `webapis.avplay` in desktop browsers.

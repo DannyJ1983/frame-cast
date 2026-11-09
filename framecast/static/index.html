@@ -148,6 +148,54 @@
       </details>
     </section>
 
+    <section id="spotify-section">
+      <div class="section-head">
+        <h3>Spotify</h3>
+        <div>
+          <a class="small-link" href="/nowplaying" target="_blank" rel="noopener">Open here</a>
+          <button type="button" id="sp-show" class="secondary small">Show on TV</button>
+        </div>
+      </div>
+      <p class="muted">Now Playing shows what's on a Spotify speaker: the album art, title, timecode and what's up next.</p>
+      <p id="sp-message" class="message" role="status" aria-live="polite"></p>
+      <details id="sp-details">
+        <summary>Spotify settings</summary>
+        <form id="sp-form" autocomplete="off">
+          <p id="sp-status" class="muted"></p>
+          <h4>1. Make a Spotify app</h4>
+          <ol class="small-print steps">
+            <li>Go to developer.spotify.com, sign in and open the <b>Dashboard</b>. Choose <b>Create app</b>; any name and description will do.</li>
+            <li>Under <b>Redirect URIs</b>, add <code id="sp-redirect"></code> exactly, and tick <b>Web API</b>.</li>
+            <li>Open the app's <b>Settings</b> and copy its <b>Client ID</b> here.</li>
+          </ol>
+          <p class="muted small-print">Spotify only lets personal apps work for accounts with Premium.</p>
+          <label for="sp-client-id">Client ID</label>
+          <input id="sp-client-id" maxlength="40" spellcheck="false" autocapitalize="none">
+          <label for="sp-device">Speaker to show</label>
+          <input id="sp-device" list="sp-devices" maxlength="60" placeholder="Office">
+          <datalist id="sp-devices"></datalist>
+          <p class="muted small-print">As Spotify names it. <button type="button" class="link-button inline" id="sp-find" hidden>List my speakers</button></p>
+          <label class="check-row"><input type="checkbox" id="sp-auto"> Switch the TV's dashboard to Now Playing when this speaker starts playing</label>
+          <div class="form-buttons"><button type="submit" id="sp-save">Save</button></div>
+
+          <h4>2. Connect your account</h4>
+          <ol class="small-print steps">
+            <li>Press <b>Connect</b> and choose <b>Agree</b> on Spotify's page.</li>
+            <li>You'll end up on a page that won't load, with an address starting <code>http://127.0.0.1</code>. That's expected: copy the whole address from the address bar.</li>
+            <li>Come back here, paste it below and press <b>Finish</b>.</li>
+          </ol>
+          <p class="muted small-print">If the Spotify app opens instead of a web page, do this step on a computer.</p>
+          <div class="form-buttons"><button type="button" id="sp-connect" class="secondary">Connect</button></div>
+          <label for="sp-address">The address you ended up on</label>
+          <div class="row">
+            <input id="sp-address" placeholder="http://127.0.0.1:8090/spotify/callback?code=…" spellcheck="false" autocapitalize="none">
+            <button type="button" id="sp-finish">Finish</button>
+          </div>
+          <button type="button" id="sp-disconnect" class="link-button" hidden>Disconnect Spotify</button>
+        </form>
+      </details>
+    </section>
+
     <section id="recent-section" hidden>
       <h3>Recent</h3>
       <ul id="recent"></ul>
@@ -176,5 +224,6 @@
   </main>
   <script src="/static/phone.js"></script>
   <script src="/static/dashboard-settings.js"></script>
+  <script src="/static/spotify-settings.js"></script>
 </body>
 </html>
